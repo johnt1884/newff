@@ -12,94 +12,155 @@
 (async function() {
     'use strict';
 
-    // --- IIFE Scope Helper for Intersection Observer ---
-    function handleIntersection(entries, observerInstance) {
-        entries.forEach(entry => {
-            const wrapper = entry.target;
-            let iframe = wrapper.querySelector('iframe');
+const defaultSettings = {
+    "otkTrackedKeywords": "otk, twitch, OTK & Company",
+    "otkMaxUpdateSeconds": 150,
+    "otkSuspendAfterInactiveMinutes": 30,
+    "otkMediaLoadMode": "cache_only",
+    "otkBackgroundUpdatesDisabled": false,
+    "otkClockEnabled": true,
+    "otkPipModeEnabled": true,
+    "otkDebugModeEnabled": false,
+    "otkLazyLoadYouTube": true,
+    "otkLazyLoadKick": true,
+    "otkLazyLoadTikTok": true,
+    "otkLazyLoadStreamable": true,
+    "otkMinUpdateSeconds": 10,
+    "otkAutoLoadUpdates": false,
+    "otkBlockedKeywords": "",
+    "otkImageBlurAmount": "60",
+    "otkFilterRulesV2": [],
+    "otkBlurredImages": [],
+    "otkUnreadMessageIds": [],
+    "otkCollapsibleStates": {},
+    "otkActiveThreads": [],
+    "otkThreadColors": {},
+    "otkDroppedThreadIds": [],
+    "otkSeenEmbedUrlIds": {},
+    "otkTweetCache": {},
+    "otkBlockedThreads": [],
+    "otkMessageLimitEnabled": false,
+    "otkMessageLimitValue": 500,
+    "otkShowNewMessagesElements": true,
+    "otkMessageLayoutStyle": "default",
+    "otkThemeSettings": {
+        "guiBackgroundImageUrl": "https://image2url.com/images/1761529475654-4c7bfbea-a390-4b5e-aef2-07667b77c17d.jpeg",
+        "countdownLabelTextColor": "#ffffff",
+        "pipBackgroundColor": "#1a1a1a",
+        "viewerBackgroundImageUrl": "",
+        "guiBgRepeat": "repeat",
+        "guiBgSize": "cover",
+        "viewerBgRepeat": "repeat-x",
+        "viewerBgSize": "contain",
+        "clockCogIconColor": "#ff8040",
+        "clockCogColor": "#FFD700",
+        "cogIconColor": "#FFD700",
+        "guiThreadListTimeColor": "#ffffff",
+        "msgDepth0TextColor": null,
+        "msgDepth0HeaderTextColor": null,
+        "viewerHeaderBorderColor": null,
+        "otkThreadTimePosition": "Before Title",
+        "otkThreadTimeDividerEnabled": true,
+        "otkThreadTimeDividerSymbol": "|",
+        "separatorColor": "#ff0505",
+        "otkThreadTimeDividerColor": "#ff8040",
+        "otkThreadTimeBracketStyle": "none",
+        "otkNewMessagesSeparatorAlignment": "Left",
+        "blockedContentFontColor": "#a60c0c",
+        "msgDepth1BgColor": null,
+        "msgDepth2plusBgColor": null,
+        "guiThreadBoxOutlineColor": "#919191",
+        "viewerMessageOutlineColor": "#ff8040",
+        "viewerThreadBoxOutlineColor": "#919191",
+        "plusIconBgColor": "#ffffff",
+        "otkThreadTitleAnimationSpeed": "1.5",
+        "qrBgColor": "#ffd1a4",
+        "qrBorderColor": "#ff8000",
+        "qrTextareaBgColor": "#ffffff",
+        "qrTextareaTextColor": "#000000",
+        "pinHighlightBgColor": "#ff8040",
+        "qrHeaderBgColor": "#000000",
+        "qrHeaderTextColor": "#ffffff",
+        "loadingProgressBarFillColor": "#ff8000",
+        "guiButtonActiveBgColor": "#ff8040",
+        "ownMsgBgColorOdd": "#fce573",
+        "ownMsgBgColorEven": "#fce573",
+        "otkThreadTitleAnimationDirection": "Down"
+    },
+    "otkThreadTitleColors": [
+        "#e6194B",
+        "#3cb44b",
+        "#ffe119",
+        "#4363d8",
+        "#f58231",
+        "#911eb4",
+        "#46f0f0",
+        "#f032e6",
+        "#bcf60c",
+        "#008080",
+        "#e6beff",
+        "#912499",
+        "#800000",
+        "#aaffc3",
+        "#cbcb25",
+        "#000075",
+        "#ffffff"
+    ],
+    "otkClockPosition": {
+        "top": "71px",
+        "left": "1284px"
+    },
+    "otkCountdownPosition": {
+        "top": "-5px",
+        "left": "1522px"
+    },
+    "otkClocks": [
+        {
+            "id": 1756699206552,
+            "timezone": "America/Chicago",
+            "displayPlace": "Austin"
+        },
+        {
+            "id": 1756699263949,
+            "timezone": "America/Los_Angeles",
+            "displayPlace": "Los Angeles"
+        }
+    ]
+};
 
-            if (entry.isIntersecting) {
-                // Element is now visible
-                if (!iframe) {
-                    // If the iframe was removed, recreate it
-                    const newIframe = document.createElement('iframe');
-                    // Copy attributes from a template or stored config if necessary
-                    // For now, assuming basic recreation is enough
-                    newIframe.style.position = 'absolute';
-                    newIframe.style.top = '0';
-                    newIframe.style.left = '0';
-                    newIframe.style.width = '100%';
-                    newIframe.style.height = '100%';
-                    newIframe.setAttribute('frameborder', '0');
-                    newIframe.setAttribute('allowfullscreen', 'true');
-                    if (wrapper.classList.contains('otk-twitch-embed-wrapper')) {
-                        newIframe.setAttribute('scrolling', 'no');
-                    } else if (wrapper.classList.contains('otk-youtube-embed-wrapper')) {
-                        newIframe.setAttribute('allow', 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
-                    }
-                    newIframe.dataset.src = wrapper.dataset.embedUrl;
-                    wrapper.innerHTML = '';
-        if (window.twttr?.widgets?.load) {
-            twttr.widgets.load(wrapper);
-        } // Clear placeholder
-                    wrapper.appendChild(newIframe);
-                    iframe = newIframe;
-                }
+const main = async () => {
+    try {
+    function getSetting(key, isThemeSetting = false) {
+        const savedValue = localStorage.getItem(key);
 
-                if (iframe && iframe.dataset.src && (!iframe.src || iframe.src === 'about:blank')) {
-                    consoleLog('[LazyLoad] Iframe is intersecting, loading src:', iframe.dataset.src);
-                    iframe.src = iframe.dataset.src;
-                }
-                observerInstance.unobserve(wrapper);
-            } else {
-                // Element is no longer visible
-                if (wrapper.classList.contains('otk-tweet-embed-wrapper')) {
-                    return; // Do not unload tweet embeds
-                }
-
-                if (iframe && iframe.src && iframe.src !== 'about:blank') {
-                    consoleLog('[LazyLoad] Iframe is no longer intersecting, removing iframe for:', iframe.src);
-
-                    // For YouTube, try to pause the video before removing
-                    if (iframe.contentWindow && iframe.src.includes("youtube.com/embed")) {
-                        try {
-                            iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', 'https://www.youtube.com');
-                        } catch (e) {
-                            consoleWarn('[LazyLoad] Error attempting to postMessage pause to YouTube:', e);
-                        }
-                    } else if (iframe.contentWindow && iframe.src.includes("twitch.tv")) {
-                        try {
-                            iframe.contentWindow.postMessage({"event": "video.pause"}, "*");
-                        } catch (e) {
-                            consoleWarn('[LazyLoad] Error attempting to postMessage pause to Twitch:', e);
-                        }
-                    }
-
-                    // Store the embed URL on the wrapper if it's not already there
-                    if (!wrapper.dataset.embedUrl) {
-                        wrapper.dataset.embedUrl = iframe.dataset.src;
-                    }
-
-                    // Remove the iframe and add a placeholder
-                    iframe.remove();
-                    const placeholder = document.createElement('div');
-                    placeholder.textContent = 'Embed hidden. Scroll to load.';
-                    placeholder.style.cssText = `
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        width: 100%;
-                        height: 100%;
-                        background-color: #181818;
-                        color: white;
-                        font-size: 14px;
-                    `;
-                    wrapper.appendChild(placeholder);
-                    observerInstance.observe(wrapper);
-                }
+        if (savedValue !== null) {
+            try {
+                // Attempt to parse JSON, but fall back to the raw value if it's not JSON
+                return JSON.parse(savedValue);
+            } catch (e) {
+                return savedValue;
             }
-        });
+        }
+
+        // Fallback logic
+        if (isThemeSetting) {
+            if (defaultSettings.otkThemeSettings.hasOwnProperty(key)) {
+                return defaultSettings.otkThemeSettings[key];
+            }
+        } else {
+            if (defaultSettings.hasOwnProperty(key)) {
+                return defaultSettings[key];
+            }
+        }
+
+        // Final fallback for theme settings not found directly
+        if (defaultSettings.otkThemeSettings.hasOwnProperty(key)) {
+            return defaultSettings.otkThemeSettings[key];
+        }
+
+        return undefined; // Key not found in localStorage or defaults
     }
+
 
     let statAnimationFrameId = null;
 let tabHidden = false;
@@ -143,7 +204,15 @@ document.addEventListener("visibilitychange", () => {
     let otkViewer = null;
     let cityData = [];
     // Debug mode (load from localStorage, default to false)
-    let DEBUG_MODE = localStorage.getItem(DEBUG_MODE_KEY) === null ? false : localStorage.getItem(DEBUG_MODE_KEY) === 'true';
+    let DEBUG_MODE = getSetting(DEBUG_MODE_KEY);
+
+    function saveSetting(key, value) {
+        if (typeof value === 'object') {
+            localStorage.setItem(key, JSON.stringify(value));
+        } else {
+            localStorage.setItem(key, value);
+        }
+    }
 
     const consoleLog = (...args) => {
         if (DEBUG_MODE) {
@@ -160,12 +229,7 @@ document.addEventListener("visibilitychange", () => {
         console.error('[OTK Tracker]', ...args);
     };
 
-    let tweetCache = {};
-    try {
-        tweetCache = JSON.parse(localStorage.getItem(TWEET_CACHE_KEY)) || {};
-    } catch (e) {
-        consoleError("Error parsing tweet cache from localStorage:", e);
-    }
+    let tweetCache = getSetting(TWEET_CACHE_KEY);
     let viewerActiveImageCount = null; // For viewer-specific unique image count
     let viewerActiveVideoCount = null; // For viewer-specific unique video count
     let backgroundRefreshIntervalId = null;
@@ -191,7 +255,7 @@ document.addEventListener("visibilitychange", () => {
     let cachedNewMessages = [];
     let multiQuoteSelections = new Set();
 let userPostIds = new Set();
-let unreadIds = new Set(JSON.parse(localStorage.getItem(UNREAD_MESSAGE_IDS_KEY) || '[]'));
+let unreadIds = new Set(getSetting(UNREAD_MESSAGE_IDS_KEY));
 
     // IndexedDB instance
     let otkMediaDB = null;
@@ -419,7 +483,7 @@ function createYouTubeEmbedElement(videoId, timestampStr) { // Removed isInlineE
     iframe.setAttribute('allowfullscreen', 'true');
     iframe.setAttribute('allow', 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
 
-    const lazyLoadEnabled = (localStorage.getItem('otkLazyLoadYouTube') || 'true') === 'true';
+    const lazyLoadEnabled = getSetting('otkLazyLoadYouTube');
 
     if (lazyLoadEnabled) {
         iframe.dataset.src = embedUrl;
@@ -596,7 +660,7 @@ function createKickEmbedElement(clipId) {
     iframe.setAttribute('allowfullscreen', 'true');
     iframe.setAttribute('scrolling', 'no');
 
-    const lazyLoadEnabled = (localStorage.getItem('otkLazyLoadKick') || 'true') === 'true';
+    const lazyLoadEnabled = getSetting('otkLazyLoadKick');
 
     if (lazyLoadEnabled) {
         iframe.dataset.src = embedUrl;
@@ -639,7 +703,7 @@ function createTikTokEmbedElement(videoId) {
     iframe.setAttribute('allowfullscreen', 'true');
     iframe.setAttribute('scrolling', 'no');
 
-    const lazyLoadEnabled = (localStorage.getItem('otkLazyLoadTikTok') || 'true') === 'true';
+    const lazyLoadEnabled = getSetting('otkLazyLoadTikTok');
 
     if (lazyLoadEnabled) {
         iframe.dataset.src = embedUrl;
@@ -685,7 +749,7 @@ function createStreamableEmbedElement(videoId) {
     iframe.setAttribute('allowfullscreen', 'true');
     iframe.setAttribute('scrolling', 'no');
 
-    const lazyLoadEnabled = (localStorage.getItem('otkLazyLoadStreamable') || 'true') === 'true';
+    const lazyLoadEnabled = getSetting('otkLazyLoadStreamable');
 
     if (lazyLoadEnabled) {
         iframe.dataset.src = embedUrl;
@@ -836,14 +900,6 @@ function createTweetEmbedElement(tweetId) {
             };
         });
     }
-
-    // Color palette for thread indicators
-    const COLORS = [
-        '#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231',
-        '#911eb4', '#46f0f0', '#f032e6', '#bcf60c',
-        '#008080', '#e6beff', '#9A6324', '#800000',
-        '#aaffc3', '#808000', '#ffd8b1', '#000075', '#808080'
-    ];
 
     // --- GUI Setup ---
     // Create GUI structure
@@ -1257,25 +1313,10 @@ function createTweetEmbedElement(tweetId) {
         });
     }
 
-    let activeThreads = [];
-    try {
-        activeThreads = JSON.parse(localStorage.getItem(THREADS_KEY)) || [];
-    } catch (e) {
-        consoleError("Error parsing active threads from localStorage:", e);
-    }
+    let activeThreads = getSetting(THREADS_KEY);
     let messagesByThreadId = {}; // Will be populated from DB
-    let threadColors = {};
-    try {
-        threadColors = JSON.parse(localStorage.getItem(COLORS_KEY)) || {};
-    } catch (e) {
-        consoleError("Error parsing thread colors from localStorage:", e);
-    }
-    let droppedThreadIds = [];
-    try {
-        droppedThreadIds = JSON.parse(localStorage.getItem(DROPPED_THREADS_KEY)) || [];
-    } catch (e) {
-        consoleError("Error parsing dropped thread IDs from localStorage:", e);
-    }
+    let threadColors = getSetting(COLORS_KEY);
+    let droppedThreadIds = getSetting(DROPPED_THREADS_KEY);
 
     // Normalize thread IDs and exclude known dropped threads
     droppedThreadIds = droppedThreadIds.map(id => Number(id)).filter(id => !isNaN(id));
@@ -1292,10 +1333,9 @@ function createTweetEmbedElement(tweetId) {
     //     }
     // }
     // Clean up droppedThreadIds after processing
-    localStorage.removeItem(DROPPED_THREADS_KEY); // This seems to be a one-time cleanup
-    localStorage.setItem(THREADS_KEY, JSON.stringify(activeThreads));
-    localStorage.setItem(COLORS_KEY, JSON.stringify(threadColors));
-    consoleLog('Initialized activeThreads from localStorage:', activeThreads);
+    saveSetting(THREADS_KEY, activeThreads);
+    saveSetting(COLORS_KEY, threadColors);
+    consoleLog('Initialized activeThreads from settings:', activeThreads);
 
 
     // (+n) Stat Update Logic
@@ -1352,7 +1392,7 @@ function animateStatIncrease(statEl, plusNEl, from, to) {
     }
 
     function updateCountdown() {
-        const nextUpdateTimestamp = parseInt(localStorage.getItem('otkNextUpdateTimestamp') || '0', 10);
+        const nextUpdateTimestamp = parseInt(getSetting('otkNextUpdateTimestamp') || '0', 10);
         const countdownTimer = document.getElementById('otk-countdown-timer');
         if (!countdownTimer) {
             return;
@@ -1430,7 +1470,7 @@ function animateStatIncrease(statEl, plusNEl, from, to) {
 
     function loadUserPostIds() {
         try {
-            const postHistory = JSON.parse(localStorage.getItem('postHistory') || '[]');
+            const postHistory = getSetting('postHistory') || [];
             userPostIds.clear(); // Clear before re-populating
             if (Array.isArray(postHistory)) {
                 postHistory.forEach(post => {
@@ -1488,20 +1528,7 @@ function animateStatIncrease(statEl, plusNEl, from, to) {
             return threadColors[threadId];
         }
 
-        // Use custom colors from localStorage if available, otherwise fall back to default COLORS
-        let customColors;
-        try {
-            const storedColors = localStorage.getItem(THREAD_TITLE_COLORS_KEY);
-            if (storedColors) {
-                customColors = JSON.parse(storedColors);
-            } else {
-                // Fallback for first run or after a reset where key is missing
-                customColors = [...COLORS];
-            }
-        } catch (e) {
-            consoleError("Error parsing custom thread title colors, falling back to default.", e);
-            customColors = [...COLORS];
-        }
+        let customColors = getSetting(THREAD_TITLE_COLORS_KEY);
 
 
         const usedColorHexes = new Set(Object.values(threadColors));
@@ -1511,7 +1538,7 @@ function animateStatIncrease(statEl, plusNEl, from, to) {
             // All colors from the palette are used, assign a fallback.
             const fallbackColor = '#888';
             threadColors[threadId] = fallbackColor;
-            localStorage.setItem(COLORS_KEY, JSON.stringify(threadColors));
+            saveSetting(COLORS_KEY, threadColors);
             return fallbackColor;
         }
 
@@ -1519,7 +1546,7 @@ function animateStatIncrease(statEl, plusNEl, from, to) {
             // If no colors are in use, any color is fine. Pick a random one.
             const randomColor = availableColors[Math.floor(Math.random() * availableColors.length)];
             threadColors[threadId] = randomColor;
-            localStorage.setItem(COLORS_KEY, JSON.stringify(threadColors));
+            saveSetting(COLORS_KEY, threadColors);
             return randomColor;
         }
 
@@ -1541,7 +1568,7 @@ function animateStatIncrease(statEl, plusNEl, from, to) {
         const colorToAssign = colorDistances[0].color;
 
         threadColors[threadId] = colorToAssign;
-        localStorage.setItem(COLORS_KEY, JSON.stringify(threadColors));
+        saveSetting(COLORS_KEY, threadColors);
         return colorToAssign;
     }
 
@@ -1552,11 +1579,11 @@ function animateStatIncrease(statEl, plusNEl, from, to) {
             blurredImages.add(filehash);
         }
 
-        localStorage.setItem(BLURRED_IMAGES_KEY, JSON.stringify(Array.from(blurredImages)));
+        saveSetting(BLURRED_IMAGES_KEY, Array.from(blurredImages));
 
         // Update all images on the page
         const allImagesOnPage = document.querySelectorAll(`img[data-filehash="${filehash}"]`);
-        const blurAmount = (localStorage.getItem(IMAGE_BLUR_AMOUNT_KEY) || 60) / 5;
+        const blurAmount = (getSetting(IMAGE_BLUR_AMOUNT_KEY)) / 5;
         const isBlurred = blurredImages.has(filehash);
 
         allImagesOnPage.forEach(img => {
@@ -1928,8 +1955,7 @@ function applyFiltersToMessageContent(message, rules) {
 }
 
 function createThreadListItemElement(thread, isForTooltip = false) {
-    const themeSettings = JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {};
-    const timePosition = themeSettings.otkThreadTimePosition || 'After Title';
+    const timePosition = getSetting('otkThreadTimePosition', true);
 
     const threadItemDiv = document.createElement('div');
     threadItemDiv.style.cssText = `
@@ -1976,8 +2002,8 @@ function createThreadListItemElement(thread, isForTooltip = false) {
 
     const time = new Date(thread.firstMessageTime * 1000);
     const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-    const bracketStyle = themeSettings.otkThreadTimeBracketStyle || '[]';
-    const bracketColor = themeSettings.otkThreadTimeBracketColor || 'var(--otk-gui-threadlist-time-color)';
+    const bracketStyle = getSetting('otkThreadTimeBracketStyle', true);
+    const bracketColor = getSetting('otkThreadTimeBracketColor', true);
     const timestampSpan = document.createElement('span');
     timestampSpan.style.marginLeft = '5px';
     if (bracketStyle !== 'none') {
@@ -2002,9 +2028,9 @@ function createThreadListItemElement(thread, isForTooltip = false) {
     titleTimeContainer.style.display = 'flex';
     titleTimeContainer.style.alignItems = 'baseline';
 
-    const dividerEnabled = themeSettings.otkThreadTimeDividerEnabled || false;
-    const dividerSymbol = themeSettings.otkThreadTimeDividerSymbol || '|';
-    const dividerColor = themeSettings.otkThreadTimeDividerColor || '#ffffff';
+    const dividerEnabled = getSetting('otkThreadTimeDividerEnabled', true);
+    const dividerSymbol = getSetting('otkThreadTimeDividerSymbol', true);
+    const dividerColor = getSetting('otkThreadTimeDividerColor', true);
 
     if (timePosition === 'Before Title') {
         titleTimeContainer.appendChild(timestampSpan);
@@ -2044,7 +2070,7 @@ function createThreadListItemElement(thread, isForTooltip = false) {
     blockIcon.innerHTML = '&#x2715;';
     blockIcon.style.cssText = `font-size: 12px; color: #ff8080; cursor: pointer; margin-left: 5px; visibility: hidden;`;
     blockIcon.title = "Block this thread";
-    blockIcon.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); blockedThreads.add(thread.id); localStorage.setItem(BLOCKED_THREADS_KEY, JSON.stringify(Array.from(blockedThreads))); activeThreads = activeThreads.filter(id => id !== thread.id); localStorage.setItem(THREADS_KEY, JSON.stringify(activeThreads)); if (confirm(`Thread ${thread.id} blocked. Also remove its messages from the viewer?`)) { delete messagesByThreadId[thread.id]; if (otkViewer && otkViewer.style.display === 'block') renderMessagesInViewer(); } renderThreadList(); updateDisplayedStatistics(false); });
+    blockIcon.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); blockedThreads.add(thread.id); saveSetting(BLOCKED_THREADS_KEY, Array.from(blockedThreads)); activeThreads = activeThreads.filter(id => id !== thread.id); saveSetting(THREADS_KEY, activeThreads); if (confirm(`Thread ${thread.id} blocked. Also remove its messages from the viewer?`)) { delete messagesByThreadId[thread.id]; if (otkViewer && otkViewer.style.display === 'block') renderMessagesInViewer(); } renderThreadList(); updateDisplayedStatistics(false); });
 
     // Common logic for both tooltip and main list items
     titleTimeContainer.appendChild(crayonIcon);
@@ -2123,8 +2149,7 @@ function renderThreadList() {
         return b.firstMessageTime - a.firstMessageTime;
     });
 
-    const themeSettings = JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {};
-    const animationSpeed = parseFloat(themeSettings.otkThreadTitleAnimationSpeed || '0');
+    const animationSpeed = parseFloat(getSetting('otkThreadTitleAnimationSpeed', true));
 
     if (threadDisplayObjects.length > 3) {
         const itemHeight = 28;
@@ -2199,8 +2224,7 @@ function renderThreadList() {
             if (animationSpeed <= 0 || threadTitleAnimationInterval) return;
             threadTitleAnimationInterval = setInterval(() => {
                 if (document.hidden || isResetting) return;
-                const themeSettingsForAnim = JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {};
-                const animationDirection = themeSettingsForAnim.otkThreadTitleAnimationDirection || 'Up';
+                const animationDirection = getSetting('otkThreadTitleAnimationDirection', true);
 
                 if (animationDirection === 'Up') {
                     threadTitleAnimationIndex++;
@@ -2326,7 +2350,7 @@ function renderThreadList() {
                 if (textContentDiv && textContentDiv.firstChild) {
                     const titleTimeContainer = textContentDiv.firstChild;
                     const titleLink = titleTimeContainer.querySelector('a');
-                    const timePosition = themeSettings.otkThreadTimePosition || 'After Title';
+                    const timePosition = getSetting('otkThreadTimePosition', true);
 
                     if (timePosition === 'Before Title') {
                         titleLink.parentNode.insertBefore(hoverContainer, titleLink.nextSibling);
@@ -2422,10 +2446,9 @@ function renderThreadList() {
 
         let allMessages = getAllMessagesSorted();
 
-    const themeSettings = JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {};
-    const messageLimitEnabled = themeSettings.otkMessageLimitEnabled !== false;
+    const messageLimitEnabled = getSetting('otkMessageLimitEnabled', true);
     if (messageLimitEnabled) {
-        const messageLimitValue = parseInt(themeSettings.otkMessageLimitValue || '500', 10);
+        const messageLimitValue = parseInt(getSetting('otkMessageLimitValue', true));
         consoleLog(`[ViewerPruning] Message limit check: Total messages=${allMessages.length}, Limit=${messageLimitValue}, Enabled=${messageLimitEnabled}`);
         if (allMessages.length > messageLimitValue) {
             consoleLog(`[ViewerPruning] Message limit exceeded. Starting advanced pruning for viewer.`);
@@ -2578,7 +2601,7 @@ consoleLog(`[StatsDebug] Unique image hashes for viewer: ${uniqueImageViewerHash
     consoleLog(`[StatsDebug] Viewer counts updated: Images=${viewerActiveImageCount}, Videos (top-level attached + top-level embed)=${viewerActiveVideoCount}`);
 updateDisplayedStatistics(false); // Update stats after all media processing is attempted.
 
-            const storedPinnedInstanceId = localStorage.getItem(PINNED_MESSAGE_ID_KEY);
+            const storedPinnedInstanceId = getSetting(PINNED_MESSAGE_ID_KEY);
             consoleLog("[ViewerScroll] Found pinned message ID in localStorage:", storedPinnedInstanceId);
 
             setTimeout(() => {
@@ -2651,8 +2674,8 @@ updateDisplayedStatistics(false); // Update stats after all media processing is 
 
         if (!isScrolledToBottom) {
             const messageElements = messagesContainer.querySelectorAll('.otk-message-container-main');
-            const messageLimitEnabled = (localStorage.getItem('otkMessageLimitEnabled') !== 'false');
-            const messageLimitValue = parseInt(localStorage.getItem('otkMessageLimitValue') || '500', 10);
+            const messageLimitEnabled = getSetting('otkMessageLimitEnabled', true);
+            const messageLimitValue = parseInt(getSetting('otkMessageLimitValue', true));
             const potentialPruneCount = Math.max(0, messageElements.length + newMessages.length - messageLimitValue);
 
             for (let i = 0; i < messageElements.length; i++) {
@@ -2678,12 +2701,11 @@ updateDisplayedStatistics(false); // Update stats after all media processing is 
 
         const newContentDiv = document.createElement('div');
 
-        const themeSettings = JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {};
-        const showNewMessagesElements = (themeSettings.otkShowNewMessagesElements || 'Show') === 'Show';
+        const showNewMessagesElements = getSetting('otkShowNewMessagesElements', true);
 
         if (showNewMessagesElements) {
             const separatorDiv = document.createElement('div');
-            const separatorAlignment = themeSettings.otkNewMessagesSeparatorAlignment || 'left';
+            const separatorAlignment = getSetting('otkNewMessagesSeparatorAlignment', true);
             separatorDiv.style.borderTop = '2px dashed var(--otk-new-messages-divider-color)';
             separatorDiv.style.margin = '20px 0';
             separatorDiv.style.paddingTop = '10px';
@@ -2711,8 +2733,8 @@ updateDisplayedStatistics(false); // Update stats after all media processing is 
         }
 
         const mediaLoadPromises = [];
-        const messageLimitEnabled = themeSettings.otkMessageLimitEnabled !== false;
-        const messageLimitValue = parseInt(themeSettings.otkMessageLimitValue || '500', 10);
+        const messageLimitEnabled = getSetting('otkMessageLimitEnabled', true);
+        const messageLimitValue = parseInt(getSetting('otkMessageLimitValue', true));
 
         for (const message of newMessages) {
             const boardForLink = message.board || 'b';
@@ -2977,7 +2999,7 @@ function _populateAttachmentDivWithMedia(
     }
 
     const isArchived = !activeThreads.includes(message.originalThreadId);
-    const mediaLoadModeSetting = localStorage.getItem('otkMediaLoadMode') || 'source_first';
+    const mediaLoadModeSetting = getSetting('otkMediaLoadMode');
     const mediaLoadMode = isArchived ? 'cache_only' : mediaLoadModeSetting;
     if (isArchived && mediaLoadModeSetting !== 'cache_only') {
         consoleLog(`[MediaLoad] Message ${message.id} is in archived thread ${message.originalThreadId}. Forcing cache-only mode.`);
@@ -3080,7 +3102,7 @@ function _populateAttachmentDivWithMedia(
             });
 
             if (blurredImages.has(filehash)) {
-                const blurAmount = (localStorage.getItem(IMAGE_BLUR_AMOUNT_KEY) || 60) / 5;
+                const blurAmount = (getSetting(IMAGE_BLUR_AMOUNT_KEY)) / 5;
                 img.style.filter = `blur(${blurAmount}px)`;
             }
         } else { // isVideo
@@ -3676,7 +3698,7 @@ function _createMessageHeaderIcons(message, messageDiv, isFiltered, headerContai
 
 function createMessageElementDOM(message, mediaLoadPromises, uniqueImageViewerHashes, boardForLink, isTopLevelMessage, currentDepth, threadColor, parentMessageId = null, ancestors = new Set(), visualDepth = null) {
         let pinIcon;
-        const filterRules = JSON.parse(localStorage.getItem(FILTER_RULES_V2_KEY) || '[]');
+        const filterRules = getSetting(FILTER_RULES_V2_KEY) || [];
 
         const shouldBeFilteredOut = isMessageFiltered(message, filterRules);
         if (shouldBeFilteredOut) {
@@ -3689,7 +3711,7 @@ function createMessageElementDOM(message, mediaLoadPromises, uniqueImageViewerHa
         const processedMessage = applyFiltersToMessageContent(message, filterRules);
         const isFiltered = shouldBeFilteredOut || doesAnyRuleMatch(message, filterRules);
 
-        // const layoutStyle = localStorage.getItem('otkMessageLayoutStyle') || 'default';
+        // const layoutStyle = getSetting('otkMessageLayoutStyle') || 'default';
 
         // Stack overflow prevention: Check for circular references.
         if (ancestors.has(message.id)) {
@@ -3703,18 +3725,8 @@ function createMessageElementDOM(message, mediaLoadPromises, uniqueImageViewerHa
         // Add current message ID to the set of ancestors for the recursive calls.
         const newAncestors = new Set(ancestors).add(message.id);
 
-        let seenEmbeds = [];
-        try {
-            seenEmbeds = JSON.parse(localStorage.getItem(SEEN_EMBED_URL_IDS_KEY)) || [];
-        } catch (e) {
-            consoleError("Error parsing seen embeds from localStorage:", e);
-        }
-        let allThemeSettings = {};
-        try {
-            allThemeSettings = JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {};
-        } catch (e) {
-            consoleError("Error parsing theme settings from localStorage:", e);
-        }
+        let seenEmbeds = getSetting(SEEN_EMBED_URL_IDS_KEY);
+        let allThemeSettings = getSetting(THEME_SETTINGS_KEY);
 
     let effectiveDepthForStyling = currentDepth;
     if (visualDepth !== null) {
@@ -3736,7 +3748,7 @@ function createMessageElementDOM(message, mediaLoadPromises, uniqueImageViewerHa
     const shouldDisableUnderline = !isTopLevelMessage;
 
         const showFilenameKey = isEvenDepth ? 'showOddMessageFilename' : 'showEvenMessageFilename';
-        const shouldDisplayFilenames = allThemeSettings[showFilenameKey] === true; // Defaults to false if not set
+        const shouldDisplayFilenames = getSetting(showFilenameKey, true); // Defaults to false if not set
 
         // --- Define all media patterns once at the top of the function ---
         const youtubePatterns = [
@@ -4066,7 +4078,7 @@ function createMessageElementDOM(message, mediaLoadPromises, uniqueImageViewerHa
             }
 
             // Initial highlight check when the element is first created
-            const initiallyStoredPinnedId = localStorage.getItem(PINNED_MESSAGE_ID_KEY);
+            const initiallyStoredPinnedId = getSetting(PINNED_MESSAGE_ID_KEY);
             consoleLog("initiallyStoredPinnedId", initiallyStoredPinnedId, "persistentInstanceId", persistentInstanceId);
             if (persistentInstanceId === initiallyStoredPinnedId) {
                 messageDiv.classList.add(PINNED_MESSAGE_CLASS);
@@ -4182,7 +4194,7 @@ function createMessageElementDOM(message, mediaLoadPromises, uniqueImageViewerHa
             const catalog = await response.json();
 
             let foundThreads = [];
-            const keywordsString = localStorage.getItem(OTK_TRACKED_KEYWORDS_KEY) || "otk";
+            const keywordsString = getSetting(OTK_TRACKED_KEYWORDS_KEY);
             const keywords = keywordsString.split(',')
                 .map(k => k.trim().toLowerCase())
                 .filter(k => k.length > 0);
@@ -4193,7 +4205,7 @@ function createMessageElementDOM(message, mediaLoadPromises, uniqueImageViewerHa
             }
             consoleLog(`scanCatalog: Using keywords for search: [${keywords.join(', ')}]`);
 
-            const blockedKeywordsString = localStorage.getItem(OTK_BLOCKED_KEYWORDS_KEY) || "";
+            const blockedKeywordsString = getSetting(OTK_BLOCKED_KEYWORDS_KEY);
             const blockedKeywords = blockedKeywordsString.split(',')
                 .map(k => k.trim().toLowerCase())
                 .filter(k => k.length > 0);
@@ -4620,7 +4632,7 @@ async function backgroundRefreshThreadsAndMessages(options = {}) { // Added opti
             updateDisplayedStatistics(isBackground);
 
             if (viewerIsOpen && !skipViewerUpdate && newMessages.length > 0) {
-                const autoLoad = localStorage.getItem('otkAutoLoadUpdates') === 'true';
+                const autoLoad = getSetting('otkAutoLoadUpdates');
                 if (autoLoad && !document.hidden) {
                     appendNewMessagesToViewer(newMessages);
                 } else {
@@ -4938,9 +4950,8 @@ async function backgroundRefreshThreadsAndMessages(options = {}) { // Added opti
             cachedNewMessages = [];
             consoleLog('[Manual Refresh] Cleared background message cache.');
 
-            const themeSettings = JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {};
-            const messageLimitEnabled = themeSettings.otkMessageLimitEnabled !== false;
-            const messageLimitValue = parseInt(themeSettings.otkMessageLimitValue || '500', 10);
+            const messageLimitEnabled = getSetting('otkMessageLimitEnabled', true);
+            const messageLimitValue = parseInt(getSetting('otkMessageLimitValue', true));
 
             if (messageLimitEnabled && allNewMessages.length > messageLimitValue) {
                 consoleLog(`[Manual Refresh] Applying message limit: Culling ${allNewMessages.length - messageLimitValue} oldest messages before rendering.`);
@@ -5226,7 +5237,7 @@ async function backgroundRefreshThreadsAndMessages(options = {}) { // Added opti
         const newVideos = 0;
 
         const viewerIsOpen = otkViewer && otkViewer.style.display === 'block';
-        const autoLoad = localStorage.getItem('otkAutoLoadUpdates') === 'true';
+        const autoLoad = getSetting('otkAutoLoadUpdates');
 
         // If viewer is open and autoloading, don't show the (+n) stat
         // because messages are appended in real-time.
@@ -5438,15 +5449,11 @@ async function backgroundRefreshThreadsAndMessages(options = {}) { // Added opti
 
     // Load saved clock position
     const CLOCK_POSITION_KEY = 'otkClockPosition';
-    try {
-        const savedClockPos = JSON.parse(localStorage.getItem(CLOCK_POSITION_KEY));
-        if (savedClockPos && savedClockPos.top && savedClockPos.left) {
-            clockElement.style.top = savedClockPos.top;
-            clockElement.style.left = savedClockPos.left;
-            clockElement.style.right = 'auto';
-        }
-    } catch (e) {
-        consoleError("Error parsing saved clock position from localStorage:", e);
+    const savedClockPos = getSetting(CLOCK_POSITION_KEY);
+    if (savedClockPos && savedClockPos.top && savedClockPos.left) {
+        clockElement.style.top = savedClockPos.top;
+        clockElement.style.left = savedClockPos.left;
+        clockElement.style.right = 'auto';
     }
 
 
@@ -5520,15 +5527,11 @@ async function backgroundRefreshThreadsAndMessages(options = {}) { // Added opti
     let countdownOffsetX, countdownOffsetY;
 
     const COUNTDOWN_POSITION_KEY = 'otkCountdownPosition';
-    try {
-        const savedCountdownPos = JSON.parse(localStorage.getItem(COUNTDOWN_POSITION_KEY));
-        if (savedCountdownPos && savedCountdownPos.top && savedCountdownPos.left) {
-            countdownElement.style.top = savedCountdownPos.top;
-            countdownElement.style.left = savedCountdownPos.left;
-            countdownElement.style.transform = 'none'; // Remove transform if we have a saved position
-        }
-    } catch (e) {
-        consoleError("Error parsing saved countdown position from localStorage:", e);
+    const savedCountdownPos = getSetting(COUNTDOWN_POSITION_KEY);
+    if (savedCountdownPos && savedCountdownPos.top && savedCountdownPos.left) {
+        countdownElement.style.top = savedCountdownPos.top;
+        countdownElement.style.left = savedCountdownPos.left;
+        countdownElement.style.transform = 'none'; // Remove transform if we have a saved position
     }
 
     countdownElement.addEventListener('mousedown', (e) => {
@@ -5666,7 +5669,7 @@ async function backgroundRefreshThreadsAndMessages(options = {}) { // Added opti
         bottomRowContainer.appendChild(btnFilter);
 
         const btnPip = createTrackerButton('Picture-in-Picture', 'otk-pip-btn');
-        btnPip.style.display = localStorage.getItem('otkPipModeEnabled') === 'true' ? 'inline-block' : 'none';
+        btnPip.style.display = getSetting('otkPipModeEnabled') ? 'inline-block' : 'none';
         bottomRowContainer.appendChild(btnPip);
 
         btnPip.addEventListener('click', () => {
@@ -5712,30 +5715,14 @@ async function backgroundRefreshThreadsAndMessages(options = {}) { // Added opti
     let suspensionCheckIntervalId = null;
     let countdownIntervalId = null;
 
-    function updateCountdown() {
-        const nextUpdateTimestamp = parseInt(localStorage.getItem('otkNextUpdateTimestamp') || '0', 10);
-        const countdownTimer = document.getElementById('otk-countdown-timer');
-        if (!countdownTimer) {
-            return;
-        }
-
-        const now = Date.now();
-        const timeLeft = Math.max(0, nextUpdateTimestamp - now);
-        const hours = Math.floor(timeLeft / (1000 * 60 * 60));
-        const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-
-        countdownTimer.textContent = `${padNumber(hours, 2)}:${padNumber(minutes, 2)}:${padNumber(seconds, 2)}`;
-    }
-
     function startBackgroundRefresh(immediate = false) {
-        if (localStorage.getItem(BACKGROUND_UPDATES_DISABLED_KEY) === 'true') {
+        if (getSetting(BACKGROUND_UPDATES_DISABLED_KEY)) {
             consoleLog('Background updates are disabled. Not starting refresh interval.');
             return;
         }
         if (backgroundRefreshIntervalId === null) { // Only start if not already running
-            const minUpdateSeconds = parseInt(localStorage.getItem('otkMinUpdateSeconds') || '10', 10);
-            const maxUpdateSeconds = parseInt(localStorage.getItem('otkMaxUpdateSeconds') || '300', 10);
+            const minUpdateSeconds = parseInt(getSetting('otkMinUpdateSeconds'));
+            const maxUpdateSeconds = parseInt(getSetting('otkMaxUpdateSeconds'));
             const randomIntervalSeconds = Math.floor(Math.random() * (maxUpdateSeconds - minUpdateSeconds + 1)) + minUpdateSeconds;
             let refreshIntervalMs = immediate ? 0 : randomIntervalSeconds * 1000;
 
@@ -5788,7 +5775,7 @@ async function backgroundRefreshThreadsAndMessages(options = {}) { // Added opti
 
         contentArea.innerHTML = ''; // Clear previous content
 
-        const clocks = JSON.parse(localStorage.getItem('otkClocks') || '[]');
+        const clocks = getSetting('otkClocks') || [];
         let draggedClockId = null;
 
         const clockListContainer = document.createElement('div');
@@ -5882,7 +5869,7 @@ async function backgroundRefreshThreadsAndMessages(options = {}) { // Added opti
                 removeBtn.style.boxSizing = 'border-box';
                 removeBtn.dataset.clockId = clock.id;
                 removeBtn.addEventListener('click', () => {
-                    let currentClocks = JSON.parse(localStorage.getItem('otkClocks') || '[]');
+                    let currentClocks = getSetting('otkClocks') || [];
                     currentClocks = currentClocks.filter(c => c.id !== clock.id);
                     localStorage.setItem('otkClocks', JSON.stringify(currentClocks));
                     renderClockOptions();
@@ -5900,7 +5887,7 @@ async function backgroundRefreshThreadsAndMessages(options = {}) { // Added opti
             const targetRow = e.target.closest('div[draggable="true"]');
             if (!targetRow || draggedClockId === null) return;
 
-            let currentClocks = JSON.parse(localStorage.getItem('otkClocks') || '[]');
+            let currentClocks = getSetting('otkClocks') || [];
             const draggedIndex = currentClocks.findIndex(c => c.id === draggedClockId);
             const targetIndex = currentClocks.findIndex(c => c.id === parseInt(targetRow.dataset.clockId));
 
@@ -5942,7 +5929,7 @@ async function backgroundRefreshThreadsAndMessages(options = {}) { // Added opti
         addClockBtn.style.boxSizing = 'border-box';
         addClockBtn.style.width = '100%';
         addClockBtn.addEventListener('click', () => {
-            const currentClocks = JSON.parse(localStorage.getItem('otkClocks') || '[]');
+            const currentClocks = getSetting('otkClocks') || [];
             const newClock = {
                 id: Date.now(),
                 timezone: 'America/New_York',
@@ -5976,14 +5963,8 @@ async function backgroundRefreshThreadsAndMessages(options = {}) { // Added opti
     defaultClockBtn.style.width = '100%';
     defaultClockBtn.addEventListener('click', () => {
         if (confirm("Are you sure you want to restore the default clock settings? This will reset all clocks and their positions.")) {
-            const defaultClocks = [
-                { "id": 1756699206552, "timezone": "America/Chicago", "displayPlace": "Austin" },
-                { "id": 1756699263949, "timezone": "America/Los_Angeles", "displayPlace": "Los Angeles" }
-            ];
-            const defaultClockPosition = { "top": "71px", "left": "1284px" };
-
-            localStorage.setItem('otkClocks', JSON.stringify(defaultClocks));
-            localStorage.setItem('otkClockPosition', JSON.stringify(defaultClockPosition));
+            localStorage.setItem('otkClocks', JSON.stringify(defaultSettings.otkClocks));
+            localStorage.setItem('otkClockPosition', JSON.stringify(defaultSettings.otkClockPosition));
 
             renderClockOptions();
             renderClocks();
@@ -6007,7 +5988,7 @@ async function backgroundRefreshThreadsAndMessages(options = {}) { // Added opti
         if (!clockContainer) return;
 
         clockContainer.innerHTML = ''; // Clear existing clocks
-        const clocks = JSON.parse(localStorage.getItem('otkClocks') || '[]');
+        const clocks = getSetting('otkClocks') || [];
 
         clocks.forEach((clock, index) => {
             const clockInstance = document.createElement('div');
@@ -6038,7 +6019,7 @@ async function backgroundRefreshThreadsAndMessages(options = {}) { // Added opti
     }
 
     function updateClockTimes() {
-        const clocks = JSON.parse(localStorage.getItem('otkClocks') || '[]');
+        const clocks = getSetting('otkClocks') || [];
         clocks.forEach(clock => {
             const clockTextElement = document.getElementById(`otk-clock-text-${clock.id}`);
             if (clockTextElement) {
@@ -6074,7 +6055,7 @@ async function backgroundRefreshThreadsAndMessages(options = {}) { // Added opti
 
         contentArea.innerHTML = ''; // Clear previous content
 
-        let titleColors = JSON.parse(localStorage.getItem(THREAD_TITLE_COLORS_KEY)) || [...COLORS];
+        let titleColors = getSetting(THREAD_TITLE_COLORS_KEY);
 
         const colorListContainer = document.createElement('div');
         contentArea.appendChild(colorListContainer);
@@ -6167,12 +6148,7 @@ async function backgroundRefreshThreadsAndMessages(options = {}) { // Added opti
         defaultColorsBtn.style.cssText += "padding: 2px 8px; font-size: 11px; height: 25px; box-sizing: border-box; width: 100%;";
         defaultColorsBtn.addEventListener('click', () => {
             if (confirm("Are you sure you want to revert to the default thread title colours?")) {
-                const defaultColors = [
-                    "#e6194B", "#3cb44b", "#ffe119", "#4363d8", "#f58231", "#911eb4", "#46f0f0",
-                    "#f032e6", "#bcf60c", "#008080", "#e6beff", "#912499", "#800000", "#aaffc3",
-                    "#cbcb25", "#000075", "#ffffff"
-                ];
-                localStorage.setItem(THREAD_TITLE_COLORS_KEY, JSON.stringify(defaultColors));
+                localStorage.setItem(THREAD_TITLE_COLORS_KEY, JSON.stringify(defaultSettings.otkThreadTitleColors));
                 renderThreadTitleColorsOptions();
             }
         });
@@ -6325,7 +6301,7 @@ async function forceViewerRerenderAfterThemeChange() {
         otkViewer.innerHTML = ''; // Clear the viewer content
 
         // Apply layout class
-        const currentLayoutToggle = localStorage.getItem('otkMessageLayoutStyle') || 'default';
+        const currentLayoutToggle = getSetting('otkMessageLayoutStyle') || 'default';
         if (currentLayoutToggle === 'new_design') {
             otkViewer.classList.add('otk-message-layout-newdesign');
             otkViewer.classList.remove('otk-message-layout-default');
@@ -6357,18 +6333,23 @@ function saveThemeSetting(key, value, requiresRerender = false) {
         pendingThemeChanges[key] = value;
         showApplyDiscardButtons();
     } else {
-        let settings = {};
-        try {
-            settings = JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {};
-        } catch (e) {
-            consoleError("Error parsing theme settings from localStorage:", e);
+        let savedSettings = {};
+        const currentSettings = localStorage.getItem(THEME_SETTINGS_KEY);
+        if (currentSettings) {
+            try {
+                savedSettings = JSON.parse(currentSettings);
+            } catch (e) {
+                console.error("Couldn't parse theme settings from localStorage", e);
+            }
         }
+
         if (value === null || value === undefined) {
-            delete settings[key];
+            delete savedSettings[key];
         } else {
-            settings[key] = value;
+            savedSettings[key] = value;
         }
-        localStorage.setItem(THEME_SETTINGS_KEY, JSON.stringify(settings));
+
+        localStorage.setItem(THEME_SETTINGS_KEY, JSON.stringify(savedSettings));
         consoleLog("Saved theme setting:", key, value);
         if (key.startsWith('otkMsgDepth')) {
             forceViewerRerenderAfterThemeChange();
@@ -6380,21 +6361,15 @@ function saveThemeSetting(key, value, requiresRerender = false) {
 }
 
 async function applyMainTheme() {
-    // If theme settings already exist in localStorage, don't overwrite them with the main theme on page load.
-    // This preserves user's session changes. Main theme is for initial load or after a reset.
-    if (localStorage.getItem(THEME_SETTINGS_KEY)) {
-        consoleLog('[Theme] Active theme settings found in localStorage. Skipping main theme load.');
-        return;
-    }
-
     try {
         const mainThemeSettings = await GM.getValue(MAIN_THEME_KEY);
         if (mainThemeSettings) {
+            // Always overwrite localStorage with the saved main theme on startup.
             const parsedSettings = JSON.parse(mainThemeSettings);
             localStorage.setItem(THEME_SETTINGS_KEY, JSON.stringify(parsedSettings));
             consoleLog('[Theme] Loaded main theme from GM storage into localStorage.');
         } else {
-            consoleLog('[Theme] No main theme found in GM storage. Using localStorage default.');
+            consoleLog('[Theme] No main theme found in GM storage. Using existing localStorage settings (if any).');
         }
     } catch (error) {
         consoleError('[Theme] Error loading main theme from GM storage:', error);
@@ -6404,12 +6379,18 @@ async function applyMainTheme() {
 function applyThemeSettings(options = {}) {
     const { forceRerender = true } = options; // Default to true to not break existing calls
 
-    let settings = {};
-    try {
-        settings = JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {};
-    } catch (e) {
-        consoleError("Error parsing theme settings from localStorage:", e);
+    let savedSettings = {};
+    const currentSettings = localStorage.getItem(THEME_SETTINGS_KEY);
+    if (currentSettings) {
+        try {
+            savedSettings = JSON.parse(currentSettings);
+        } catch (e) {
+            console.error("Couldn't parse theme settings from localStorage", e);
+        }
     }
+
+    const settings = { ...defaultSettings.otkThemeSettings, ...savedSettings };
+
     consoleLog("Applying theme settings:", settings);
     consoleLog("[Clock BG Debug] Applying theme. clockBgColor is:", settings.clockBgColor);
 
@@ -6810,8 +6791,7 @@ function applyThemeSettings(options = {}) {
         group.appendChild(controlsWrapperDiv);
 
         // Logic
-        const settings = JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {};
-        let initialValue = settings[options.storageKey] || options.defaultValue;
+        let initialValue = getSetting(options.storageKey, true);
         textInput.value = initialValue;
 
         const isValidColor = (str) => /^#([0-9A-F]{3}){1,2}$/i.test(str);
@@ -6839,8 +6819,7 @@ function applyThemeSettings(options = {}) {
             if (value === 'none' || isValidColor(value)) {
                 updateState(value);
             } else {
-                const savedSettings = JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {};
-                textInput.value = savedSettings[options.storageKey] || options.defaultValue;
+                textInput.value = getSetting(options.storageKey, true);
             }
         });
 
@@ -6860,7 +6839,7 @@ function applyThemeSettings(options = {}) {
         const pipBackground = document.getElementById('otk-pip-background');
         if (!pipBackground) return;
 
-        const settings = JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {};
+        const settings = getSetting(THEME_SETTINGS_KEY) || {};
         pipBackground.style.backgroundColor = settings.pipBackgroundColor || '#1a1a1a';
         if (settings.pipBackgroundImageUrl) {
             pipBackground.style.backgroundImage = `url('${settings.pipBackgroundImageUrl}')`;
@@ -7137,7 +7116,7 @@ function createSectionHeading(text) {
         optionsWindow.appendChild(titleBar);
 
         applyButton.addEventListener('click', () => {
-            let settings = JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {};
+            let settings = getSetting(THEME_SETTINGS_KEY) || {};
             settings = { ...settings, ...pendingThemeChanges };
             localStorage.setItem(THEME_SETTINGS_KEY, JSON.stringify(settings));
             pendingThemeChanges = {};
@@ -7235,7 +7214,7 @@ function createSectionHeading(text) {
         trackedKeywordsInput.id = 'otk-tracked-keywords-input';
         trackedKeywordsInput.placeholder = "e.g., otk, item2, phrase three";
         trackedKeywordsInput.style.cssText = "width: 100%; height: 25px; box-sizing: border-box; font-size: 12px; text-align: right;";
-        trackedKeywordsInput.value = localStorage.getItem(OTK_TRACKED_KEYWORDS_KEY) || "otk"; // Load saved value or default
+        trackedKeywordsInput.value = getSetting(OTK_TRACKED_KEYWORDS_KEY); // Load saved value or default
 
         trackedKeywordsInput.addEventListener('change', () => { // Save on change (after blur or Enter)
             const valueToSave = trackedKeywordsInput.value.trim();
@@ -7271,7 +7250,7 @@ function createSectionHeading(text) {
         blockedKeywordsInput.id = 'otk-blocked-keywords-input';
         blockedKeywordsInput.placeholder = "e.g., word1, word2, phrase three";
         blockedKeywordsInput.style.cssText = "width: 100%; height: 25px; box-sizing: border-box; font-size: 12px; text-align: right;";
-        blockedKeywordsInput.value = localStorage.getItem(OTK_BLOCKED_KEYWORDS_KEY) || "";
+        blockedKeywordsInput.value = getSetting(OTK_BLOCKED_KEYWORDS_KEY);
 
         blockedKeywordsInput.addEventListener('change', () => {
             const valueToSave = blockedKeywordsInput.value.trim();
@@ -7303,14 +7282,14 @@ function createSectionHeading(text) {
             timeInput.placeholder = "hh:mm:ss";
             timeInput.style.cssText = "width: 100%; height: 25px; box-sizing: border-box; font-size: 12px; text-align: right;";
 
-            const savedSeconds = localStorage.getItem(storageKey);
-            timeInput.value = secondsToHHMMSS(savedSeconds !== null ? savedSeconds : defaultValueSeconds);
+            timeInput.value = secondsToHHMMSS(getSetting(storageKey));
 
             timeInput.addEventListener('change', () => {
                 const seconds = hhmmssToSeconds(timeInput.value);
                 if (seconds === 0 && timeInput.value !== '00:00:00') {
-                    timeInput.value = secondsToHHMMSS(defaultValueSeconds);
-                    localStorage.setItem(storageKey, defaultValueSeconds);
+                    const defaultValue = defaultSettings[storageKey];
+                    timeInput.value = secondsToHHMMSS(defaultValue);
+                    localStorage.setItem(storageKey, defaultValue);
                     alert("Invalid time format. Please use hh:mm:ss.");
                 } else {
                     localStorage.setItem(storageKey, seconds);
@@ -7362,7 +7341,7 @@ function createSectionHeading(text) {
         generalSettingsSection.appendChild(createTimeInputRow({
             labelText: "Maximum Time Between Updates:",
             storageKey: 'otkMaxUpdateSeconds',
-            defaultValueSeconds: 300, // 5 minutes
+            defaultValueSeconds: 150, // 5 minutes
             idSuffix: 'max-update-time'
         }));
 
@@ -7387,7 +7366,7 @@ function createSectionHeading(text) {
             suspendSelect.appendChild(optionElement);
         });
 
-        suspendSelect.value = localStorage.getItem('otkSuspendAfterInactiveMinutes') || '1';
+        suspendSelect.value = getSetting('otkSuspendAfterInactiveMinutes');
 
         suspendSelect.addEventListener('change', () => {
             localStorage.setItem('otkSuspendAfterInactiveMinutes', suspendSelect.value);
@@ -7423,7 +7402,7 @@ function createSectionHeading(text) {
             mediaLoadModeSelect.appendChild(optionElement);
         });
 
-        mediaLoadModeSelect.value = localStorage.getItem('otkMediaLoadMode') || 'source_first';
+        mediaLoadModeSelect.value = getSetting('otkMediaLoadMode');
 
         mediaLoadModeSelect.addEventListener('change', () => {
             localStorage.setItem('otkMediaLoadMode', mediaLoadModeSelect.value);
@@ -7436,8 +7415,6 @@ function createSectionHeading(text) {
         generalSettingsSection.appendChild(mediaLoadModeGroup);
 
         // --- Enable Message Number Limiting & Set Value ---
-        const initialThemeSettings = JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {};
-
         const messageLimitGroup = createTimeInputRow({
             labelText: "Message Number Limiting:",
             storageKey: 'otkMessageLimitValue',
@@ -7448,14 +7425,13 @@ function createSectionHeading(text) {
         const messageLimitValueInput = messageLimitGroup.querySelector('input[type="text"]');
         messageLimitValueInput.type = 'number';
         messageLimitValueInput.placeholder = '';
-        messageLimitValueInput.value = initialThemeSettings.otkMessageLimitValue || '500';
+        messageLimitValueInput.value = getSetting('otkMessageLimitValue', true);
         messageLimitValueInput.addEventListener('change', () => {
              const numValue = parseInt(messageLimitValueInput.value, 10);
              if (!isNaN(numValue) && numValue >= 0) {
                  saveThemeSetting('otkMessageLimitValue', String(numValue), true);
              } else {
-                 const savedSettings = JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {};
-                 messageLimitValueInput.value = savedSettings.otkMessageLimitValue || '500';
+                messageLimitValueInput.value = getSetting('otkMessageLimitValue', true);
              }
         });
         // Remove the hh:mm:ss conversion logic from this specific instance
@@ -7486,7 +7462,7 @@ function createSectionHeading(text) {
         messageLimitEnableCheckbox.type = 'checkbox';
         messageLimitEnableCheckbox.id = 'otk-message-limit-enable-checkbox';
         messageLimitEnableCheckbox.style.cssText = "height: 16px; width: 16px;";
-        messageLimitEnableCheckbox.checked = initialThemeSettings.otkMessageLimitEnabled !== false;
+        messageLimitEnableCheckbox.checked = getSetting('otkMessageLimitEnabled', true);
 
         messageLimitControlsWrapper.appendChild(messageLimitEnableCheckbox);
         messageLimitEnableGroup.appendChild(messageLimitEnableLabel);
@@ -7527,18 +7503,14 @@ function createSectionHeading(text) {
         bgUpdateCheckbox.type = 'checkbox';
         bgUpdateCheckbox.id = 'otk-enable-bg-update-checkbox';
         bgUpdateCheckbox.style.cssText = "height: 16px; width: 16px;";
-        bgUpdateCheckbox.checked = localStorage.getItem(BACKGROUND_UPDATES_DISABLED_KEY) !== 'true';
+        bgUpdateCheckbox.checked = !getSetting(BACKGROUND_UPDATES_DISABLED_KEY);
 
         bgUpdateCheckbox.addEventListener('change', () => {
-            stopBackgroundRefresh();
-            if (bgUpdateCheckbox.checked) {
-                // If checked, updates are ENABLED
-                localStorage.setItem(BACKGROUND_UPDATES_DISABLED_KEY, 'false');
-                startBackgroundRefresh(true); // Start immediately
-                consoleLog('Background updates enabled via checkbox.');
-            } else {
-                // If not checked, updates are DISABLED
-                if (countdownIntervalId) {
+            const isDisabled = !bgUpdateCheckbox.checked;
+            localStorage.setItem(BACKGROUND_UPDATES_DISABLED_KEY, isDisabled);
+            if (isDisabled) {
+                stopBackgroundRefresh();
+                 if (countdownIntervalId) {
                     clearInterval(countdownIntervalId);
                     countdownIntervalId = null;
                 }
@@ -7546,8 +7518,10 @@ function createSectionHeading(text) {
                 if (countdownTimer) {
                     countdownTimer.textContent = 'n/a';
                 }
-                localStorage.setItem(BACKGROUND_UPDATES_DISABLED_KEY, 'true');
                 consoleLog('Background updates disabled via checkbox.');
+            } else {
+                startBackgroundRefresh(true);
+                consoleLog('Background updates enabled via checkbox.');
             }
         });
 
@@ -7569,7 +7543,7 @@ function createSectionHeading(text) {
         autoLoadCheckbox.type = 'checkbox';
         autoLoadCheckbox.id = 'otk-auto-load-updates-checkbox';
         autoLoadCheckbox.style.cssText = "height: 16px; width: 16px;";
-        autoLoadCheckbox.checked = localStorage.getItem('otkAutoLoadUpdates') === 'true'; // Default to false
+        autoLoadCheckbox.checked = getSetting('otkAutoLoadUpdates'); // Default to false
         autoLoadCheckbox.addEventListener('change', () => {
             localStorage.setItem('otkAutoLoadUpdates', autoLoadCheckbox.checked);
         });
@@ -7594,7 +7568,7 @@ function createSectionHeading(text) {
         clockToggleCheckbox.type = 'checkbox';
         clockToggleCheckbox.id = 'otk-clock-toggle-checkbox';
         clockToggleCheckbox.style.cssText = "height: 16px; width: 16px;";
-        clockToggleCheckbox.checked = localStorage.getItem('otkClockEnabled') === 'true';
+        clockToggleCheckbox.checked = getSetting('otkClockEnabled');
 
         clockToggleCheckbox.addEventListener('change', () => {
             const isEnabled = clockToggleCheckbox.checked;
@@ -7630,7 +7604,7 @@ function createSectionHeading(text) {
         pipToggleCheckbox.type = 'checkbox';
         pipToggleCheckbox.id = 'otk-pip-mode-checkbox';
         pipToggleCheckbox.style.cssText = "height: 16px; width: 16px;";
-        pipToggleCheckbox.checked = localStorage.getItem('otkPipModeEnabled') === 'true';
+        pipToggleCheckbox.checked = getSetting('otkPipModeEnabled');
 
         pipToggleCheckbox.addEventListener('change', () => {
             const isEnabled = pipToggleCheckbox.checked;
@@ -7689,37 +7663,40 @@ function createSectionHeading(text) {
         resetGeneralSettingsButton.addEventListener('click', () => {
             if (confirm("Are you sure you want to reset all general settings to default?")) {
                 const generalSettingsKeys = [
-                    OTK_TRACKED_KEYWORDS_KEY,
-                    OTK_BLOCKED_KEYWORDS_KEY,
+                    'otkTrackedKeywords',
+                    'otkBlockedKeywords',
                     'otkMinUpdateSeconds',
                     'otkMaxUpdateSeconds',
                     'otkSuspendAfterInactiveMinutes',
                     'otkMediaLoadMode',
-                    BACKGROUND_UPDATES_DISABLED_KEY,
+                    'otkBackgroundUpdatesDisabled',
                     'otkClockEnabled',
                     'otkPipModeEnabled',
-                    DEBUG_MODE_KEY,
+                    'otkDebugModeEnabled',
                     'otkAutoLoadUpdates'
                 ];
-                generalSettingsKeys.forEach(key => localStorage.removeItem(key));
+                generalSettingsKeys.forEach(key => {
+                    localStorage.setItem(key, JSON.stringify(defaultSettings[key]));
+                });
+
 
                 // Reflect defaults in UI
-                document.getElementById('otk-tracked-keywords-input').value = "otk";
-                document.getElementById('otk-blocked-keywords-input').value = "";
-                document.getElementById('otk-min-update-time-input').value = secondsToHHMMSS(10);
-                document.getElementById('otk-max-update-time-input').value = secondsToHHMMSS(300);
-                document.getElementById('otk-suspend-after-inactive-select').value = '1';
-                document.getElementById('otk-media-load-mode-select').value = 'source_first';
+                document.getElementById('otk-tracked-keywords-input').value = defaultSettings.otkTrackedKeywords;
+                document.getElementById('otk-blocked-keywords-input').value = defaultSettings.otkBlockedKeywords;
+                document.getElementById('otk-min-update-time-input').value = secondsToHHMMSS(defaultSettings.otkMinUpdateSeconds);
+                document.getElementById('otk-max-update-time-input').value = secondsToHHMMSS(defaultSettings.otkMaxUpdateSeconds);
+                document.getElementById('otk-suspend-after-inactive-select').value = defaultSettings.otkSuspendAfterInactiveMinutes;
+                document.getElementById('otk-media-load-mode-select').value = defaultSettings.otkMediaLoadMode;
                 const bgUpdateCheckbox = document.getElementById('otk-enable-bg-update-checkbox');
-                if(bgUpdateCheckbox) bgUpdateCheckbox.checked = true;
+                if(bgUpdateCheckbox) bgUpdateCheckbox.checked = !defaultSettings.otkBackgroundUpdatesDisabled;
                 const autoLoadCheckbox = document.getElementById('otk-auto-load-updates-checkbox');
-                if(autoLoadCheckbox) autoLoadCheckbox.checked = false;
+                if(autoLoadCheckbox) autoLoadCheckbox.checked = defaultSettings.otkAutoLoadUpdates;
                 const clockToggleCheckbox = document.getElementById('otk-clock-toggle-checkbox');
-                if(clockToggleCheckbox) clockToggleCheckbox.checked = false;
+                if(clockToggleCheckbox) clockToggleCheckbox.checked = defaultSettings.otkClockEnabled;
                 const pipToggleCheckbox = document.getElementById('otk-pip-mode-checkbox');
-                if(pipToggleCheckbox) pipToggleCheckbox.checked = false;
+                if(pipToggleCheckbox) pipToggleCheckbox.checked = defaultSettings.otkPipModeEnabled;
                 const debugToggleCheckbox = document.getElementById('otk-debug-mode-checkbox');
-                if(debugToggleCheckbox) debugToggleCheckbox.checked = true;
+                if(debugToggleCheckbox) debugToggleCheckbox.checked = defaultSettings.otkDebugModeEnabled;
 
                 alert("General settings have been reset to default. Some changes may require a page refresh to take full effect.");
             }
@@ -7798,9 +7775,7 @@ function createSectionHeading(text) {
             `;
 
             // Initialize checkbox state from theme settings
-            const settings = JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {};
-            const savedValue = settings[options.storageKey];
-            checkbox.checked = (savedValue !== undefined) ? savedValue : options.defaultValue;
+            checkbox.checked = getSetting(options.storageKey, true);
 
             checkbox.addEventListener('change', () => {
                 saveThemeSetting(options.storageKey, checkbox.checked, options.requiresRerender);
@@ -7833,7 +7808,7 @@ function createSectionHeading(text) {
             input.placeholder = 'Enter image URL or browse';
             input.style.cssText = "flex: 1 1 70px; min-width: 50px; height: 25px; box-sizing: border-box; font-size: 12px; text-align: right;";
 
-            const initialUrl = (JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {})[storageKey] || '';
+            const initialUrl = getSetting(storageKey, true) || '';
             if (initialUrl.startsWith('data:image')) {
                 input.value = '(Local file is selected)';
                 input.dataset.fullUrl = initialUrl;
@@ -8007,7 +7982,7 @@ function createSectionHeading(text) {
                         // Restore previous valid values if possible, or default
                         let currentSaved = options.defaultValue;
                         try {
-                            currentSaved = (JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {})[options.storageKey] || options.defaultValue;
+                            currentSaved = (getSetting(THEME_SETTINGS_KEY) || {})[options.storageKey] || options.defaultValue;
                         } catch (e) {
                             consoleError("Error parsing theme settings from localStorage:", e);
                         }
@@ -8027,7 +8002,7 @@ function createSectionHeading(text) {
                         consoleWarn(`Invalid number value for ${options.labelText}:`, processedValue);
                          let currentSaved = options.defaultValue;
                          try {
-                            currentSaved = (JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {})[options.storageKey] || options.defaultValue;
+                            currentSaved = (getSetting(THEME_SETTINGS_KEY) || {})[options.storageKey] || options.defaultValue;
                          } catch (e) {
                             consoleError("Error parsing theme settings from localStorage:", e);
                          }
@@ -8145,7 +8120,7 @@ function createSectionHeading(text) {
             // Restore state from localStorage
             let states = {};
             try {
-                states = JSON.parse(localStorage.getItem(storageKey)) || {};
+                states = getSetting(storageKey) || {};
             } catch (e) { consoleError(e); }
             const isCollapsed = states[sectionId] !== undefined ? states[sectionId] === 'closed' : defaultCollapsed;
             content.style.display = isCollapsed ? 'none' : 'block';
@@ -8158,7 +8133,7 @@ function createSectionHeading(text) {
 
                 let currentStates = {};
                 try {
-                    currentStates = JSON.parse(localStorage.getItem(storageKey)) || {};
+                    currentStates = getSetting(storageKey) || {};
                 } catch (e) { consoleError(e); }
                 currentStates[sectionId] = isHidden ? 'open' : 'closed';
                 localStorage.setItem(storageKey, JSON.stringify(currentStates));
@@ -8247,8 +8222,7 @@ function createSectionHeading(text) {
         });
 
         const dividerInput = dividerSymbolRow.querySelector('input');
-        const themeSettings = JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {};
-        const isDividerEnabled = themeSettings.otkThreadTimeDividerEnabled !== false; // Default to true
+        const isDividerEnabled = getSetting('otkThreadTimeDividerEnabled', true) !== false; // Default to true
         dividerDropdown.value = isDividerEnabled ? 'enabled' : 'disabled';
         dividerInput.disabled = !isDividerEnabled;
 
@@ -8363,7 +8337,7 @@ function createSectionHeading(text) {
                 optionElement.textContent = opt;
                 select.appendChild(optionElement);
             });
-            select.value = (JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {})[options.storageKey] || options.defaultValue;
+            select.value = (getSetting(THEME_SETTINGS_KEY) || {})[options.storageKey] || options.defaultValue;
             select.addEventListener('change', () => {
                 saveThemeSetting(options.storageKey, select.value, options.requiresRerender || false);
             });
@@ -8419,7 +8393,7 @@ function createSectionHeading(text) {
             optionElement.textContent = opt;
             showNewMessagesSelect.appendChild(optionElement);
         });
-        showNewMessagesSelect.value = (JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {}).otkShowNewMessagesElements || 'Show';
+        showNewMessagesSelect.value = (getSetting(THEME_SETTINGS_KEY) || {}).otkShowNewMessagesElements || 'Show';
         showNewMessagesSelect.addEventListener('change', () => {
             saveThemeSetting('otkShowNewMessagesElements', showNewMessagesSelect.value, false);
             applyThemeSettings({ forceRerender: false });
@@ -8506,7 +8480,7 @@ function createSectionHeading(text) {
             font-size: 12px;
             text-align: right;
         `;
-        blurInput.value = localStorage.getItem(IMAGE_BLUR_AMOUNT_KEY) || '60';
+        blurInput.value = getSetting(IMAGE_BLUR_AMOUNT_KEY);
         blurInput.addEventListener('change', (e) => {
             let value = parseInt(e.target.value, 10);
             if (isNaN(value) || value < 0 || value > 100) {
@@ -8638,90 +8612,90 @@ function createSectionHeading(text) {
             // This function is primarily for mapping storageKey, cssVariable, defaultValue, inputType, etc.
             // The spelling change from "Color" to "Colour" happens in the createThemeOptionRow calls.
             return [
-                { storageKey: 'guiTextColor', cssVariable: '--otk-gui-text-color', defaultValue: '#e6e6e6', inputType: 'color', idSuffix: 'gui-text' },
-                { storageKey: 'guiBgColor', cssVariable: '--otk-gui-bg-color', defaultValue: '#181818', inputType: 'color', idSuffix: 'gui-bg' },
-                { storageKey: 'titleTextColor', cssVariable: '--otk-title-text-color', defaultValue: '#ff8040', inputType: 'color', idSuffix: 'title-text' },
-                { storageKey: 'guiThreadListTitleColor', cssVariable: '--otk-gui-threadlist-title-color', defaultValue: '#e0e0e0', inputType: 'color', idSuffix: 'threadlist-title' },
-                { storageKey: 'guiThreadListTimeColor', cssVariable: '--otk-gui-threadlist-time-color', defaultValue: '#FFD700', inputType: 'color', idSuffix: 'threadlist-time' },
-                { storageKey: 'actualStatsTextColor', cssVariable: '--otk-stats-text-color', defaultValue: '#ff8040', inputType: 'color', idSuffix: 'actual-stats-text' },
-                { storageKey: 'statsDashColor', cssVariable: '--otk-stats-dash-color', defaultValue: '#e6e6e6', inputType: 'color', idSuffix: 'stats-dash' },
-                { storageKey: 'backgroundUpdatesStatsTextColor', cssVariable: '--otk-background-updates-stats-text-color', defaultValue: '#FFD700', inputType: 'color', idSuffix: 'background-updates-stats-text' },
-                { storageKey: 'viewerBgColor', cssVariable: '--otk-viewer-bg-color', defaultValue: '#ffd1a4', inputType: 'color', idSuffix: 'viewer-bg' },
-                { storageKey: 'guiBottomBorderColor', cssVariable: '--otk-gui-bottom-border-color', defaultValue: '#ff8040', inputType: 'color', idSuffix: 'gui-bottom-border' },
+                { storageKey: 'guiTextColor', cssVariable: '--otk-gui-text-color', defaultValue: defaultSettings.otkThemeSettings.guiTextColor, inputType: 'color', idSuffix: 'gui-text' },
+                { storageKey: 'guiBgColor', cssVariable: '--otk-gui-bg-color', defaultValue: defaultSettings.otkThemeSettings.guiBgColor, inputType: 'color', idSuffix: 'gui-bg' },
+                { storageKey: 'titleTextColor', cssVariable: '--otk-title-text-color', defaultValue: defaultSettings.otkThemeSettings.titleTextColor, inputType: 'color', idSuffix: 'title-text' },
+                { storageKey: 'guiThreadListTitleColor', cssVariable: '--otk-gui-threadlist-title-color', defaultValue: defaultSettings.otkThemeSettings.guiThreadListTitleColor, inputType: 'color', idSuffix: 'threadlist-title' },
+                { storageKey: 'guiThreadListTimeColor', cssVariable: '--otk-gui-threadlist-time-color', defaultValue: defaultSettings.otkThemeSettings.guiThreadListTimeColor, inputType: 'color', idSuffix: 'threadlist-time' },
+                { storageKey: 'actualStatsTextColor', cssVariable: '--otk-stats-text-color', defaultValue: defaultSettings.otkThemeSettings.actualStatsTextColor, inputType: 'color', idSuffix: 'actual-stats-text' },
+                { storageKey: 'statsDashColor', cssVariable: '--otk-stats-dash-color', defaultValue: defaultSettings.otkThemeSettings.statsDashColor, inputType: 'color', idSuffix: 'stats-dash' },
+                { storageKey: 'backgroundUpdatesStatsTextColor', cssVariable: '--otk-background-updates-stats-text-color', defaultValue: defaultSettings.otkThemeSettings.backgroundUpdatesStatsTextColor, inputType: 'color', idSuffix: 'background-updates-stats-text' },
+                { storageKey: 'viewerBgColor', cssVariable: '--otk-viewer-bg-color', defaultValue: defaultSettings.otkThemeSettings.viewerBgColor, inputType: 'color', idSuffix: 'viewer-bg' },
+                { storageKey: 'guiBottomBorderColor', cssVariable: '--otk-gui-bottom-border-color', defaultValue: defaultSettings.otkThemeSettings.guiBottomBorderColor, inputType: 'color', idSuffix: 'gui-bottom-border' },
                 // Messages (Odds) - Corresponds to Depth 0, 2, 4...
-                { storageKey: 'msgDepthOddContentFontSize', cssVariable: '--otk-msg-depth-odd-content-font-size', defaultValue: '16px', inputType: 'number', unit: 'px', min: 8, max: 24, idSuffix: 'msg-depth-odd-content-fontsize'},
-                { storageKey: 'msgDepthOddBgColor', cssVariable: '--otk-msg-depth-odd-bg-color', defaultValue: '#ffffff', inputType: 'color', idSuffix: 'msg-depth-odd-bg' },
-                { storageKey: 'msgDepthOddTextColor', cssVariable: '--otk-msg-depth-odd-text-color', defaultValue: '#333333', inputType: 'color', idSuffix: 'msg-depth-odd-text' },
-                { storageKey: 'msgDepthOddHeaderTextColor', cssVariable: '--otk-msg-depth-odd-header-text-color', defaultValue: '#555555', inputType: 'color', idSuffix: 'msg-depth-odd-header-text' },
-                { storageKey: 'viewerHeaderBorderColorOdd', cssVariable: '--otk-viewer-header-border-color-odd', defaultValue: '#000000', inputType: 'color', idSuffix: 'viewer-header-border-odd' },
+                { storageKey: 'msgDepthOddContentFontSize', cssVariable: '--otk-msg-depth-odd-content-font-size', defaultValue: defaultSettings.otkThemeSettings.msgDepthOddContentFontSize, inputType: 'number', unit: 'px', min: 8, max: 24, idSuffix: 'msg-depth-odd-content-fontsize'},
+                { storageKey: 'msgDepthOddBgColor', cssVariable: '--otk-msg-depth-odd-bg-color', defaultValue: defaultSettings.otkThemeSettings.msgDepthOddBgColor, inputType: 'color', idSuffix: 'msg-depth-odd-bg' },
+                { storageKey: 'msgDepthOddTextColor', cssVariable: '--otk-msg-depth-odd-text-color', defaultValue: defaultSettings.otkThemeSettings.msgDepthOddTextColor, inputType: 'color', idSuffix: 'msg-depth-odd-text' },
+                { storageKey: 'msgDepthOddHeaderTextColor', cssVariable: '--otk-msg-depth-odd-header-text-color', defaultValue: defaultSettings.otkThemeSettings.msgDepthOddHeaderTextColor, inputType: 'color', idSuffix: 'msg-depth-odd-header-text' },
+                { storageKey: 'viewerHeaderBorderColorOdd', cssVariable: '--otk-viewer-header-border-color-odd', defaultValue: defaultSettings.otkThemeSettings.viewerHeaderBorderColorOdd, inputType: 'color', idSuffix: 'viewer-header-border-odd' },
                 // Messages (Evens) - Corresponds to Depth 1, 3, 5...
-                { storageKey: 'msgDepthEvenContentFontSize', cssVariable: '--otk-msg-depth-even-content-font-size', defaultValue: '16px', inputType: 'number', unit: 'px', min: 8, max: 24, idSuffix: 'msg-depth-even-content-fontsize'},
-                { storageKey: 'msgDepthEvenBgColor', cssVariable: '--otk-msg-depth-even-bg-color', defaultValue: '#d9d9d9', inputType: 'color', idSuffix: 'msg-depth-even-bg' },
-                { storageKey: 'msgDepthEvenTextColor', cssVariable: '--otk-msg-depth-even-text-color', defaultValue: '#333333', inputType: 'color', idSuffix: 'msg-depth-even-text' },
-                { storageKey: 'msgDepthEvenHeaderTextColor', cssVariable: '--otk-msg-depth-even-header-text-color', defaultValue: '#555555', inputType: 'color', idSuffix: 'msg-depth-even-header-text' },
-                { storageKey: 'ownMsgBgColorOdd', cssVariable: '--otk-own-msg-bg-color-odd', defaultValue: '#d1e7ff', inputType: 'color', idSuffix: 'own-msg-bg-odd' },
-                { storageKey: 'ownMsgBgColorEven', cssVariable: '--otk-own-msg-bg-color-even', defaultValue: '#c1d7ef', inputType: 'color', idSuffix: 'own-msg-bg-even' },
-                { storageKey: 'cogIconColor', cssVariable: '--otk-cog-icon-color', defaultValue: '#FFD700', inputType: 'color', idSuffix: 'cog-icon' },
-                { storageKey: 'disableBgFontColor', cssVariable: '--otk-disable-bg-font-color', defaultValue: '#ff8040', inputType: 'color', idSuffix: 'disable-bg-font' },
-                { storageKey: 'countdownBgColor', cssVariable: '--otk-countdown-bg-color', defaultValue: '#181818', inputType: 'color', idSuffix: 'countdown-bg' },
-                { storageKey: 'countdownLabelTextColor', cssVariable: '--otk-countdown-label-text-color', defaultValue: '#ff8040', inputType: 'color', idSuffix: 'countdown-label-text' },
-                { storageKey: 'countdownTimerTextColor', cssVariable: '--otk-countdown-timer-text-color', defaultValue: '#ff8040', inputType: 'color', idSuffix: 'countdown-timer-text' },
-                { storageKey: 'separatorColor', cssVariable: '--otk-separator-color', defaultValue: '#e6e6e6', inputType: 'color', idSuffix: 'separator' },
-                { storageKey: 'optionsTextColor', cssVariable: '--otk-options-text-color', defaultValue: '#e6e6e6', inputType: 'color', idSuffix: 'options-text' },
-                { storageKey: 'newMessagesDividerColor', cssVariable: '--otk-new-messages-divider-color', defaultValue: '#000000', inputType: 'color', idSuffix: 'new-msg-divider' },
-                { storageKey: 'newMessagesFontColor', cssVariable: '--otk-new-messages-font-color', defaultValue: '#000000', inputType: 'color', idSuffix: 'new-msg-font' },
-                { storageKey: 'newMessagesFontSize', cssVariable: '--otk-new-messages-font-size', defaultValue: '16px', inputType: 'number', unit: 'px', min: 8, max: 24, idSuffix: 'new-msg-font-size', requiresRerender: false },
-                { storageKey: 'blockedContentFontColor', cssVariable: '--otk-blocked-content-font-color', defaultValue: '#e6e6e6', inputType: 'color', idSuffix: 'blocked-content-font' },
+                { storageKey: 'msgDepthEvenContentFontSize', cssVariable: '--otk-msg-depth-even-content-font-size', defaultValue: defaultSettings.otkThemeSettings.msgDepthEvenContentFontSize, inputType: 'number', unit: 'px', min: 8, max: 24, idSuffix: 'msg-depth-even-content-fontsize'},
+                { storageKey: 'msgDepthEvenBgColor', cssVariable: '--otk-msg-depth-even-bg-color', defaultValue: defaultSettings.otkThemeSettings.msgDepthEvenBgColor, inputType: 'color', idSuffix: 'msg-depth-even-bg' },
+                { storageKey: 'msgDepthEvenTextColor', cssVariable: '--otk-msg-depth-even-text-color', defaultValue: defaultSettings.otkThemeSettings.msgDepthEvenTextColor, inputType: 'color', idSuffix: 'msg-depth-even-text' },
+                { storageKey: 'msgDepthEvenHeaderTextColor', cssVariable: '--otk-msg-depth-even-header-text-color', defaultValue: defaultSettings.otkThemeSettings.msgDepthEvenHeaderTextColor, inputType: 'color', idSuffix: 'msg-depth-even-header-text' },
+                { storageKey: 'ownMsgBgColorOdd', cssVariable: '--otk-own-msg-bg-color-odd', defaultValue: defaultSettings.otkThemeSettings.ownMsgBgColorOdd, inputType: 'color', idSuffix: 'own-msg-bg-odd' },
+                { storageKey: 'ownMsgBgColorEven', cssVariable: '--otk-own-msg-bg-color-even', defaultValue: defaultSettings.otkThemeSettings.ownMsgBgColorEven, inputType: 'color', idSuffix: 'own-msg-bg-even' },
+                { storageKey: 'cogIconColor', cssVariable: '--otk-cog-icon-color', defaultValue: defaultSettings.otkThemeSettings.cogIconColor, inputType: 'color', idSuffix: 'cog-icon' },
+                { storageKey: 'disableBgFontColor', cssVariable: '--otk-disable-bg-font-color', defaultValue: defaultSettings.otkThemeSettings.disableBgFontColor, inputType: 'color', idSuffix: 'disable-bg-font' },
+                { storageKey: 'countdownBgColor', cssVariable: '--otk-countdown-bg-color', defaultValue: defaultSettings.otkThemeSettings.countdownBgColor, inputType: 'color', idSuffix: 'countdown-bg' },
+                { storageKey: 'countdownLabelTextColor', cssVariable: '--otk-countdown-label-text-color', defaultValue: defaultSettings.otkThemeSettings.countdownLabelTextColor, inputType: 'color', idSuffix: 'countdown-label-text' },
+                { storageKey: 'countdownTimerTextColor', cssVariable: '--otk-countdown-timer-text-color', defaultValue: defaultSettings.otkThemeSettings.countdownTimerTextColor, inputType: 'color', idSuffix: 'countdown-timer-text' },
+                { storageKey: 'separatorColor', cssVariable: '--otk-separator-color', defaultValue: defaultSettings.otkThemeSettings.separatorColor, inputType: 'color', idSuffix: 'separator' },
+                { storageKey: 'optionsTextColor', cssVariable: '--otk-options-text-color', defaultValue: defaultSettings.otkThemeSettings.optionsTextColor, inputType: 'color', idSuffix: 'options-text' },
+                { storageKey: 'newMessagesDividerColor', cssVariable: '--otk-new-messages-divider-color', defaultValue: defaultSettings.otkThemeSettings.newMessagesDividerColor, inputType: 'color', idSuffix: 'new-msg-divider' },
+                { storageKey: 'newMessagesFontColor', cssVariable: '--otk-new-messages-font-color', defaultValue: defaultSettings.otkThemeSettings.newMessagesFontColor, inputType: 'color', idSuffix: 'new-msg-font' },
+                { storageKey: 'newMessagesFontSize', cssVariable: '--otk-new-messages-font-size', defaultValue: defaultSettings.otkThemeSettings.newMessagesFontSize, inputType: 'number', unit: 'px', min: 8, max: 24, idSuffix: 'new-msg-font-size', requiresRerender: false },
+                { storageKey: 'blockedContentFontColor', cssVariable: '--otk-blocked-content-font-color', defaultValue: defaultSettings.otkThemeSettings.blockedContentFontColor, inputType: 'color', idSuffix: 'blocked-content-font' },
 
                 // Pin Highlight Colors
-                { storageKey: 'pinHighlightBgColor', cssVariable: '--otk-pin-highlight-bg-color', defaultValue: '#ffd1a4', inputType: 'color', idSuffix: 'pin-bg' },
-                { storageKey: 'pinHighlightBorderColor', cssVariable: '--otk-pin-highlight-border-color', defaultValue: '#000000', inputType: 'color', idSuffix: 'pin-border' },
+                { storageKey: 'pinHighlightBgColor', cssVariable: '--otk-pin-highlight-bg-color', defaultValue: defaultSettings.otkThemeSettings.pinHighlightBgColor, inputType: 'color', idSuffix: 'pin-bg' },
+                { storageKey: 'pinHighlightBorderColor', cssVariable: '--otk-pin-highlight-border-color', defaultValue: defaultSettings.otkThemeSettings.pinHighlightBorderColor, inputType: 'color', idSuffix: 'pin-border' },
 
                 // '+' Icon Background
-                { storageKey: 'plusIconBgColor', cssVariable: '--otk-plus-icon-bg-color', defaultValue: '#d9d9d9', inputType: 'color', idSuffix: 'plus-icon-bg-color' },
-                { storageKey: 'plusIconColor', cssVariable: '--otk-plus-icon-color', defaultValue: '#000000', inputType: 'color', idSuffix: 'plus-icon-color' },
+                { storageKey: 'plusIconBgColor', cssVariable: '--otk-plus-icon-bg-color', defaultValue: defaultSettings.otkThemeSettings.plusIconBgColor, inputType: 'color', idSuffix: 'plus-icon-bg-color' },
+                { storageKey: 'plusIconColor', cssVariable: '--otk-plus-icon-color', defaultValue: defaultSettings.otkThemeSettings.plusIconColor, inputType: 'color', idSuffix: 'plus-icon-color' },
 
                 // GUI Button Colours
-                { storageKey: 'guiButtonBgColor', cssVariable: '--otk-button-bg-color', defaultValue: '#555555', inputType: 'color', idSuffix: 'gui-button-bg' },
-                { storageKey: 'guiButtonTextColor', cssVariable: '--otk-button-text-color', defaultValue: '#ffffff', inputType: 'color', idSuffix: 'gui-button-text' },
-                { storageKey: 'guiButtonBorderColor', cssVariable: '--otk-button-border-color', defaultValue: '#777777', inputType: 'color', idSuffix: 'gui-button-border' },
-                { storageKey: 'guiButtonHoverBgColor', cssVariable: '--otk-button-hover-bg-color', defaultValue: '#666666', inputType: 'color', idSuffix: 'gui-button-hover-bg' },
-                { storageKey: 'guiButtonActiveBgColor', cssVariable: '--otk-button-active-bg-color', defaultValue: '#444444', inputType: 'color', idSuffix: 'gui-button-active-bg' },
+                { storageKey: 'guiButtonBgColor', cssVariable: '--otk-button-bg-color', defaultValue: defaultSettings.otkThemeSettings.guiButtonBgColor, inputType: 'color', idSuffix: 'gui-button-bg' },
+                { storageKey: 'guiButtonTextColor', cssVariable: '--otk-button-text-color', defaultValue: defaultSettings.otkThemeSettings.guiButtonTextColor, inputType: 'color', idSuffix: 'gui-button-text' },
+                { storageKey: 'guiButtonBorderColor', cssVariable: '--otk-button-border-color', defaultValue: defaultSettings.otkThemeSettings.guiButtonBorderColor, inputType: 'color', idSuffix: 'gui-button-border' },
+                { storageKey: 'guiButtonHoverBgColor', cssVariable: '--otk-button-hover-bg-color', defaultValue: defaultSettings.otkThemeSettings.guiButtonHoverBgColor, inputType: 'color', idSuffix: 'gui-button-hover-bg' },
+                { storageKey: 'guiButtonActiveBgColor', cssVariable: '--otk-button-active-bg-color', defaultValue: defaultSettings.otkThemeSettings.guiButtonActiveBgColor, inputType: 'color', idSuffix: 'gui-button-active-bg' },
 
                 // Loading Screen Colours
-                { storageKey: 'loadingOverlayBaseHexColor', cssVariable: '--otk-loading-overlay-base-hex-color', defaultValue: '#000000', inputType: 'color', idSuffix: 'loading-overlay-base-hex' },
-                { storageKey: 'loadingOverlayOpacity', cssVariable: '--otk-loading-overlay-opacity', defaultValue: '1', inputType: 'number', unit: null, min:0.0, max:1.0, step:0.05, idSuffix: 'loading-overlay-opacity' },
-                { storageKey: 'loadingTextColor', cssVariable: '--otk-loading-text-color', defaultValue: '#ffffff', inputType: 'color', idSuffix: 'loading-text' },
-                { storageKey: 'loadingProgressBarBgColor', cssVariable: '--otk-loading-progress-bar-bg-color', defaultValue: '#333333', inputType: 'color', idSuffix: 'loading-progress-bg' },
-                { storageKey: 'loadingProgressBarFillColor', cssVariable: '--otk-loading-progress-bar-fill-color', defaultValue: '#4CAF50', inputType: 'color', idSuffix: 'loading-progress-fill' },
-                { storageKey: 'loadingProgressBarTextColor', cssVariable: '--otk-loading-progress-bar-text-color', defaultValue: '#ffffff', inputType: 'color', idSuffix: 'loading-progress-text' },
+                { storageKey: 'loadingOverlayBaseHexColor', cssVariable: '--otk-loading-overlay-base-hex-color', defaultValue: defaultSettings.otkThemeSettings.loadingOverlayBaseHexColor, inputType: 'color', idSuffix: 'loading-overlay-base-hex' },
+                { storageKey: 'loadingOverlayOpacity', cssVariable: '--otk-loading-overlay-opacity', defaultValue: defaultSettings.otkThemeSettings.loadingOverlayOpacity, inputType: 'number', unit: null, min:0.0, max:1.0, step:0.05, idSuffix: 'loading-overlay-opacity' },
+                { storageKey: 'loadingTextColor', cssVariable: '--otk-loading-text-color', defaultValue: defaultSettings.otkThemeSettings.loadingTextColor, inputType: 'color', idSuffix: 'loading-text' },
+                { storageKey: 'loadingProgressBarBgColor', cssVariable: '--otk-loading-progress-bar-bg-color', defaultValue: defaultSettings.otkThemeSettings.loadingProgressBarBgColor, inputType: 'color', idSuffix: 'loading-progress-bg' },
+                { storageKey: 'loadingProgressBarFillColor', cssVariable: '--otk-loading-progress-bar-fill-color', defaultValue: defaultSettings.otkThemeSettings.loadingProgressBarFillColor, inputType: 'color', idSuffix: 'loading-progress-fill' },
+                { storageKey: 'loadingProgressBarTextColor', cssVariable: '--otk-loading-progress-bar-text-color', defaultValue: defaultSettings.otkThemeSettings.loadingProgressBarTextColor, inputType: 'color', idSuffix: 'loading-progress-text' },
 
                 // Clock Colours
-                { storageKey: 'clockBgColor', cssVariable: '--otk-clock-bg-color', defaultValue: '#181818', inputType: 'color', idSuffix: 'clock-bg' },
-                { storageKey: 'clockTextColor', cssVariable: '--otk-clock-text-color', defaultValue: '#e6e6e6', inputType: 'color', idSuffix: 'clock-text' },
-                { storageKey: 'clockBorderColor', cssVariable: '--otk-clock-border-color', defaultValue: '#181818', inputType: 'color', idSuffix: 'clock-border' },
-                { storageKey: 'clockSearchBgColor', cssVariable: '--otk-clock-search-bg-color', defaultValue: '#333', inputType: 'color', idSuffix: 'clock-search-bg' },
-                { storageKey: 'clockSearchTextColor', cssVariable: '--otk-clock-search-text-color', defaultValue: '#e6e6e6', inputType: 'color', idSuffix: 'clock-search-text' },
+                { storageKey: 'clockBgColor', cssVariable: '--otk-clock-bg-color', defaultValue: defaultSettings.otkThemeSettings.clockBgColor, inputType: 'color', idSuffix: 'clock-bg' },
+                { storageKey: 'clockTextColor', cssVariable: '--otk-clock-text-color', defaultValue: defaultSettings.otkThemeSettings.clockTextColor, inputType: 'color', idSuffix: 'clock-text' },
+                { storageKey: 'clockBorderColor', cssVariable: '--otk-clock-border-color', defaultValue: defaultSettings.otkThemeSettings.clockBorderColor, inputType: 'color', idSuffix: 'clock-border' },
+                { storageKey: 'clockSearchBgColor', cssVariable: '--otk-clock-search-bg-color', defaultValue: defaultSettings.otkThemeSettings.clockSearchBgColor, inputType: 'color', idSuffix: 'clock-search-bg' },
+                { storageKey: 'clockSearchTextColor', cssVariable: '--otk-clock-search-text-color', defaultValue: defaultSettings.otkThemeSettings.clockSearchTextColor, inputType: 'color', idSuffix: 'clock-search-text' },
 
                 // QR Theming
-                { storageKey: 'qrBgColor', cssVariable: '--otk-qr-bg-color', defaultValue: '#333333', inputType: 'color', idSuffix: 'qr-bg' },
-                { storageKey: 'qrBorderColor', cssVariable: '--otk-qr-border-color', defaultValue: '#555555', inputType: 'color', idSuffix: 'qr-border' },
-                { storageKey: 'qrHeaderBgColor', cssVariable: '--otk-qr-header-bg-color', defaultValue: '#444444', inputType: 'color', idSuffix: 'qr-header-bg' },
-                { storageKey: 'qrHeaderTextColor', cssVariable: '--otk-qr-header-text-color', defaultValue: '#ffffff', inputType: 'color', idSuffix: 'qr-header-text' },
-                { storageKey: 'qrTextareaBgColor', cssVariable: '--otk-qr-textarea-bg-color', defaultValue: '#222222', inputType: 'color', idSuffix: 'qr-textarea-bg' },
-                { storageKey: 'qrTextareaTextColor', cssVariable: '--otk-qr-textarea-text-color', defaultValue: '#eeeeee', inputType: 'color', idSuffix: 'qr-textarea-text' },
+                { storageKey: 'qrBgColor', cssVariable: '--otk-qr-bg-color', defaultValue: defaultSettings.otkThemeSettings.qrBgColor, inputType: 'color', idSuffix: 'qr-bg' },
+                { storageKey: 'qrBorderColor', cssVariable: '--otk-qr-border-color', defaultValue: defaultSettings.otkThemeSettings.qrBorderColor, inputType: 'color', idSuffix: 'qr-border' },
+                { storageKey: 'qrHeaderBgColor', cssVariable: '--otk-qr-header-bg-color', defaultValue: defaultSettings.otkThemeSettings.qrHeaderBgColor, inputType: 'color', idSuffix: 'qr-header-bg' },
+                { storageKey: 'qrHeaderTextColor', cssVariable: '--otk-qr-header-text-color', defaultValue: defaultSettings.otkThemeSettings.qrHeaderTextColor, inputType: 'color', idSuffix: 'qr-header-text' },
+                { storageKey: 'qrTextareaBgColor', cssVariable: '--otk-qr-textarea-bg-color', defaultValue: defaultSettings.otkThemeSettings.qrTextareaBgColor, inputType: 'color', idSuffix: 'qr-textarea-bg' },
+                { storageKey: 'qrTextareaTextColor', cssVariable: '--otk-qr-textarea-text-color', defaultValue: defaultSettings.otkThemeSettings.qrTextareaTextColor, inputType: 'color', idSuffix: 'qr-textarea-text' },
 
                 // Message Header Icon Colors
-                { storageKey: 'blockIconColorOdd', cssVariable: '--otk-block-icon-color-odd', defaultValue: '#999999', inputType: 'color', idSuffix: 'block-icon-odd' },
-                { storageKey: 'blockIconColorEven', cssVariable: '--otk-block-icon-color-even', defaultValue: '#999999', inputType: 'color', idSuffix: 'block-icon-even' },
-                { storageKey: 'pinIconColorOdd', cssVariable: '--otk-pin-icon-color-odd', defaultValue: '#666666', inputType: 'color', idSuffix: 'pin-icon-odd' },
-                { storageKey: 'pinIconColorEven', cssVariable: '--otk-pin-icon-color-even', defaultValue: '#666666', inputType: 'color', idSuffix: 'pin-icon-even' },
-                { storageKey: 'pinIconColorActive', cssVariable: '--otk-pin-icon-color-active', defaultValue: '#ffffff', inputType: 'color', idSuffix: 'pin-icon-active' },
-                { storageKey: 'mediaControlsBgColorOdd', cssVariable: '--otk-media-controls-bg-color-odd', defaultValue: 'rgba(255, 255, 255, 0.8)', inputType: 'color', idSuffix: 'media-controls-bg-odd' },
-                { storageKey: 'mediaControlsBgColorEven', cssVariable: '--otk-media-controls-bg-color-even', defaultValue: 'rgba(217, 217, 217, 0.8)', inputType: 'color', idSuffix: 'media-controls-bg-even' },
-                { storageKey: 'mediaMenuIconColor', cssVariable: '--otk-media-menu-icon-color', defaultValue: '#ff8040', inputType: 'color', idSuffix: 'media-menu-icon' },
-                { storageKey: 'optionsMainBgColor', cssVariable: '--otk-options-main-bg-color', defaultValue: '#2c2c2c', inputType: 'color', idSuffix: 'options-main-bg' },
-                { storageKey: 'optionsAltBgColor', cssVariable: '--otk-options-alt-bg-color', defaultValue: '#383838', inputType: 'color', idSuffix: 'options-alt-bg' }
+                { storageKey: 'blockIconColorOdd', cssVariable: '--otk-block-icon-color-odd', defaultValue: defaultSettings.otkThemeSettings.blockIconColorOdd, inputType: 'color', idSuffix: 'block-icon-odd' },
+                { storageKey: 'blockIconColorEven', cssVariable: '--otk-block-icon-color-even', defaultValue: defaultSettings.otkThemeSettings.blockIconColorEven, inputType: 'color', idSuffix: 'block-icon-even' },
+                { storageKey: 'pinIconColorOdd', cssVariable: '--otk-pin-icon-color-odd', defaultValue: defaultSettings.otkThemeSettings.pinIconColorOdd, inputType: 'color', idSuffix: 'pin-icon-odd' },
+                { storageKey: 'pinIconColorEven', cssVariable: '--otk-pin-icon-color-even', defaultValue: defaultSettings.otkThemeSettings.pinIconColorEven, inputType: 'color', idSuffix: 'pin-icon-even' },
+                { storageKey: 'pinIconColorActive', cssVariable: '--otk-pin-icon-color-active', defaultValue: defaultSettings.otkThemeSettings.pinIconColorActive, inputType: 'color', idSuffix: 'pin-icon-active' },
+                { storageKey: 'mediaControlsBgColorOdd', cssVariable: '--otk-media-controls-bg-color-odd', defaultValue: defaultSettings.otkThemeSettings.mediaControlsBgColorOdd, inputType: 'color', idSuffix: 'media-controls-bg-odd' },
+                { storageKey: 'mediaControlsBgColorEven', cssVariable: '--otk-media-controls-bg-color-even', defaultValue: defaultSettings.otkThemeSettings.mediaControlsBgColorEven, inputType: 'color', idSuffix: 'media-controls-bg-even' },
+                { storageKey: 'mediaMenuIconColor', cssVariable: '--otk-media-menu-icon-color', defaultValue: defaultSettings.otkThemeSettings.mediaMenuIconColor, inputType: 'color', idSuffix: 'media-menu-icon' },
+                { storageKey: 'optionsMainBgColor', cssVariable: '--otk-options-main-bg-color', defaultValue: defaultSettings.otkThemeSettings.optionsMainBgColor, inputType: 'color', idSuffix: 'options-main-bg' },
+                { storageKey: 'optionsAltBgColor', cssVariable: '--otk-options-alt-bg-color', defaultValue: defaultSettings.otkThemeSettings.optionsAltBgColor, inputType: 'color', idSuffix: 'options-alt-bg' }
             ];
         }
 
@@ -8731,55 +8705,20 @@ function createSectionHeading(text) {
             }
 
             consoleLog("Resetting all theme settings to default...");
-            // Clear the active theme settings from localStorage.
+            // Simply remove the user's overrides. The script will fall back to the hardcoded defaults.
             localStorage.removeItem(THEME_SETTINGS_KEY);
 
-            const allOptionConfigs = getAllOptionConfigs();
+            // Re-apply the default settings to the UI.
+            applyThemeSettings({ forceRerender: false });
 
-            allOptionConfigs.forEach(opt => {
-                const defaultValue = opt.defaultValue;
-                // Set the CSS variable to the default value.
-                if (opt.cssVariable) {
-                    document.documentElement.style.setProperty(opt.cssVariable, defaultValue);
-                }
+            // Also refresh general settings checkboxes to prevent UI desync
+            const clockToggleCheckbox = document.getElementById('otk-clock-toggle-checkbox');
+            if(clockToggleCheckbox) clockToggleCheckbox.checked = getSetting('otkClockEnabled');
+            const pipToggleCheckbox = document.getElementById('otk-pip-mode-checkbox');
+            if(pipToggleCheckbox) pipToggleCheckbox.checked = getSetting('otkPipModeEnabled');
 
-                // Update the input fields in the options panel to reflect the default values.
-                const mainInput = document.getElementById(`otk-${opt.idSuffix}`);
-                const hexInput = opt.inputType === 'color' ? document.getElementById(`otk-${opt.idSuffix}-hex`) : null;
 
-                let displayValue = defaultValue;
-                if (opt.unit && displayValue.endsWith(opt.unit)) {
-                    displayValue = displayValue.replace(opt.unit, '');
-                }
-
-                if (mainInput) mainInput.value = displayValue;
-                if (hexInput) hexInput.value = displayValue;
-
-                if (opt.storageKey === 'cogIconColor') {
-                    const cogIcon = document.getElementById('otk-settings-cog');
-                    if (cogIcon) cogIcon.style.color = defaultValue;
-                }
-            });
-
-            const newBooleanSettings = [
-                { key: 'otkMsgDepthOddDisableHeaderUnderline', defaultValue: false, idSuffix: 'msg-depth-odd-disable-header-underline' },
-                { key: 'otkMsgDepthEvenDisableHeaderUnderline', defaultValue: true, idSuffix: 'msg-depth-even-disable-header-underline' },
-                { key: 'showOddMessageFilename', defaultValue: false, idSuffix: 'show-odd-filename'},
-                { key: 'showEvenMessageFilename', defaultValue: false, idSuffix: 'show-even-filename'}
-            ];
-            newBooleanSettings.forEach(opt => {
-                const checkbox = document.getElementById(`otk-${opt.idSuffix}-checkbox`);
-                if (checkbox) {
-                    checkbox.checked = opt.defaultValue;
-                }
-            });
-
-            // The applyThemeSettings() call is no longer needed here if called by the initiator.
-            // If called from the reset button, it should call it.
-            // Let's call it for the standalone reset case.
             if (promptUser) {
-                // No need to call applyThemeSettings() as we have manually set all the properties.
-                // Calling it might re-apply old settings from memory before a refresh.
                 forceViewerRerenderAfterThemeChange(); // Force a re-render if the viewer is open.
                 alert("All theme settings have been reset to their defaults.");
             }
@@ -8861,7 +8800,7 @@ function renderFilterEditorView(ruleToEdit = null) {
 
     rightContent.innerHTML = ''; // Clear previous content
 
-    const allRules = JSON.parse(localStorage.getItem(FILTER_RULES_V2_KEY) || '[]');
+    const allRules = getSetting(FILTER_RULES_V2_KEY) || [];
     const isEditing = ruleToEdit ? allRules.some(r => r.id === ruleToEdit.id) : false;
 
     const rule = ruleToEdit || {
@@ -8965,7 +8904,7 @@ function renderFilterEditorView(ruleToEdit = null) {
             return false;
         }
 
-        let currentRules = JSON.parse(localStorage.getItem(FILTER_RULES_V2_KEY) || '[]');
+        let currentRules = getSetting(FILTER_RULES_V2_KEY) || [];
         const ruleIndex = currentRules.findIndex(r => r.id === rule.id);
 
         if (ruleIndex > -1) {
@@ -9051,7 +8990,7 @@ function renderFilterList() {
     ruleListContainer.style.cssText = 'display: flex; flex-direction: column; max-height: 280px; overflow-y: auto; padding-right: 15px;';
     rightContent.appendChild(ruleListContainer);
 
-    const rules = JSON.parse(localStorage.getItem(FILTER_RULES_V2_KEY) || '[]');
+    const rules = getSetting(FILTER_RULES_V2_KEY) || [];
     if (rules.length === 0) {
         ruleListContainer.textContent = 'No filter rules saved.';
         return;
@@ -9229,7 +9168,7 @@ function renderFilterList() {
         toggleInput.checked = rule.enabled;
         toggleInput.addEventListener('change', () => {
             rule.enabled = toggleInput.checked;
-            const updatedRules = JSON.parse(localStorage.getItem(FILTER_RULES_V2_KEY) || '[]');
+            const updatedRules = getSetting(FILTER_RULES_V2_KEY) || [];
             const ruleIndex = updatedRules.findIndex(r => r.id === rule.id);
             if (ruleIndex > -1) {
                 updatedRules[ruleIndex].enabled = rule.enabled;
@@ -9266,7 +9205,7 @@ function renderFilterList() {
 
     deleteSelectedBtn.addEventListener('click', () => {
         if (!confirm('Are you sure you want to delete the selected rules?')) return;
-        let currentRules = JSON.parse(localStorage.getItem(FILTER_RULES_V2_KEY) || '[]');
+        let currentRules = getSetting(FILTER_RULES_V2_KEY) || [];
         const idsToDelete = new Set(checkboxes.filter(cb => cb.checked).map(cb => parseInt(cb.dataset.ruleId, 10)));
         const newRules = currentRules.filter(rule => !idsToDelete.has(rule.id));
         localStorage.setItem(FILTER_RULES_V2_KEY, JSON.stringify(newRules));
@@ -9424,128 +9363,10 @@ function setupFilterWindow() {
 
 
     // --- Initial Actions / Main Execution ---
-    function applyDefaultSettings() {
-        const defaults = {
-            "otkTrackedKeywords": "otk, twitch, OTK & Company",
-            "otkSuspendAfterInactiveMinutes": 60,
-            "otkMediaLoadMode": "cache_only",
-            "otkBackgroundUpdatesDisabled": true,
-            "otkClockEnabled": true,
-            "otkPipModeEnabled": true,
-            "otkDebugModeEnabled": false,
-            "otkThemeSettings": {
-                "guiBackgroundImageUrl": "https://image2url.com/images/1761873386643-e6861f83-261d-4d19-96ee-53473553b762.jpeg",
-                "countdownLabelTextColor": "#ffffff",
-                "pipBackgroundColor": "#1a1a1a",
-                "viewerBackgroundImageUrl": "",
-                "guiBgRepeat": "no-repeat",
-                "guiBgSize": "cover",
-                "viewerBgRepeat": "no-repeat",
-                "viewerBgSize": "cover",
-                "cogIconColor": "#FFD700",
-                "guiThreadListTimeColor": "#ffffff",
-                "otkThreadTimePosition": "Before Title",
-                "otkThreadTimeDividerEnabled": true,
-                "otkThreadTimeDividerSymbol": "|",
-                "otkThreadTimeDividerColor": "#ff8040",
-                "otkThreadTimeBracketStyle": "none",
-                "otkNewMessagesSeparatorAlignment": "Left",
-                "blockedContentFontColor": "#a60c0c",
-                "guiThreadBoxOutlineColor": "919191",
-                "viewerThreadBoxOutlineColor": "919191",
-                "plusIconBgColor": "#ffffff",
-                "otkThreadTitleAnimationSpeed": "1.5",
-                "qrBgColor": "#ffd1a4",
-                "qrBorderColor": "#ff8000",
-                "qrTextareaBgColor": "#ffffff",
-                "qrTextareaTextColor": "#000000",
-                "pinHighlightBgColor": "#ff8040",
-                "qrHeaderBgColor": "#000000",
-                "qrHeaderTextColor": "#ffffff",
-                "loadingProgressBarFillColor": "#ff8000",
-                "guiButtonActiveBgColor": "#ff8040",
-                "ownMsgBgColorOdd": "#fce573",
-                "ownMsgBgColorEven": "#fce573",
-                "otkThreadTitleAnimationDirection": "down",
-                "otkMessageLimitEnabled": true,
-                "otkMessageLimitValue": "500",
-                "otkShowNewMessagesElements": "Show",
-                "titleTextColor": "#ff8040",
-                "clockTextColor": "#e6e6e6"
-            },
-            "otkThreadTitleColors": [
-             "#e6194B",
-             "#3cb44b",
-             "#ffe119",
-             "#4363d8",
-             "#f58231",
-             "#911eb4",
-             "#46f0f0",
-             "#f032e6",
-             "#bcf60c",
-             "#008080",
-             "#e6beff",
-             "#912499",
-             "#800000",
-             "#aaffc3",
-             "#cbcb25",
-             "#000075",
-             "#ffffff"
-            ],
-            "otkClockPosition": { "top": "71px", "left": "1284px" },
-            "otkCountdownPosition": { "top": "-5px", "left": "1522px" },
-            "otkClocks": [
-                { "id": 1, "timezone": "America/Chicago", "displayPlace": "Austin" },
-                { "id": 2, "timezone": "America/Los_Angeles", "displayPlace": "Los Angeles" }
-            ],
-            "otkImageBlurAmount": "60",
-            "otkFilterRulesV2": "[]",
-            "otkBlurredImages": "[]",
-            "otkUnreadMessageIds": "[]",
-            "otkCollapsibleStates": "{}"
-        };
-
-        // Apply top-level settings
-        Object.keys(defaults).forEach(key => {
-            if (key === "otkThemeSettings") return; // Handle theme settings separately
-            if (localStorage.getItem(key) === null) {
-                let valueToSet = defaults[key];
-                if (typeof valueToSet === 'object') {
-                    valueToSet = JSON.stringify(valueToSet);
-                }
-                localStorage.setItem(key, valueToSet);
-            }
-        });
-
-        // Apply theme settings
-        let currentThemeSettings = {};
-        try {
-            currentThemeSettings = JSON.parse(localStorage.getItem("otkThemeSettings")) || {};
-        } catch (e) {
-            consoleError("Error parsing existing theme settings:", e);
-        }
-
-        const defaultThemeSettings = defaults.otkThemeSettings;
-        let themeSettingsModified = false;
-        Object.keys(defaultThemeSettings).forEach(key => {
-            if (currentThemeSettings[key] === undefined) {
-                currentThemeSettings[key] = defaultThemeSettings[key];
-                themeSettingsModified = true;
-            }
-        });
-
-        if (themeSettingsModified) {
-            localStorage.setItem("otkThemeSettings", JSON.stringify(currentThemeSettings));
-        }
-
-        console.log("Default settings applied if not already present.");
-    }
-
     async function main() {
         console.log("main() function started.");
-        applyDefaultSettings();
         // Ensure default animation speed is set on first run
-        let settings = JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {};
+        let settings = getSetting(THEME_SETTINGS_KEY) || {};
         if (settings.otkThreadTitleAnimationSpeed === undefined) {
             settings.otkThreadTitleAnimationSpeed = '1';
             localStorage.setItem(THEME_SETTINGS_KEY, JSON.stringify(settings));
@@ -9553,15 +9374,15 @@ function setupFilterWindow() {
         }
 
         // Migration: Remove old filter rules key if it exists
-        if (localStorage.getItem('otkFilterRules')) {
+        if (getSetting('otkFilterRules')) {
             localStorage.removeItem('otkFilterRules');
             consoleLog('[Migration] Removed outdated otkFilterRules from localStorage.');
         }
 
         // Clock data migration
-        if (!localStorage.getItem('otkClocks')) {
-            const oldTimezone = localStorage.getItem('otkClockTimezone');
-            const oldDisplayPlace = localStorage.getItem('otkClockDisplayPlace');
+        if (!getSetting('otkClocks')) {
+            const oldTimezone = getSetting('otkClockTimezone');
+            const oldDisplayPlace = getSetting('otkClockDisplayPlace');
             let initialClocks = [];
             if (oldTimezone) {
                 initialClocks.push({
@@ -9583,27 +9404,17 @@ function setupFilterWindow() {
 
         consoleLog("Starting OTK Thread Tracker script (v2.8)...");
 
-        try {
-            const storedBlurred = JSON.parse(localStorage.getItem(BLURRED_IMAGES_KEY));
-            if (Array.isArray(storedBlurred)) {
-                blurredImages = new Set(storedBlurred);
-            }
-            consoleLog(`Loaded ${blurredImages.size} blurred image hashes.`);
-        } catch (e) {
-            consoleError("Error parsing blurred images from localStorage:", e);
-            blurredImages = new Set();
+        const storedBlurred = getSetting(BLURRED_IMAGES_KEY);
+        if (Array.isArray(storedBlurred)) {
+            blurredImages = new Set(storedBlurred);
         }
+        consoleLog(`Loaded ${blurredImages.size} blurred image hashes.`);
 
-        try {
-            const storedBlocked = JSON.parse(localStorage.getItem(BLOCKED_THREADS_KEY));
-            if (Array.isArray(storedBlocked)) {
-                blockedThreads = new Set(storedBlocked);
-            }
-            consoleLog(`Loaded ${blockedThreads.size} blocked thread hashes.`);
-        } catch (e) {
-            consoleError("Error parsing blocked threads from localStorage:", e);
-            blockedThreads = new Set();
+        const storedBlocked = getSetting(BLOCKED_THREADS_KEY);
+        if (Array.isArray(storedBlocked)) {
+            blockedThreads = new Set(storedBlocked);
         }
+        consoleLog(`Loaded ${blockedThreads.size} blocked thread hashes.`);
 
         loadUserPostIds();
 
@@ -9618,6 +9429,7 @@ function setupFilterWindow() {
                 --otk-clock-search-bg-color: #333;
                 --otk-clock-search-text-color: #e6e6e6;
                 --otk-countdown-bg-color: #181818;
+                --otk-countdown-label-text-color: #ffffff;
                 --otk-gui-bg-color: #181818;
                 --otk-gui-text-color: #e6e6e6; /* General text in the main GUI bar */
                 --otk-options-text-color: #e6e6e6; /* For text within the options panel */
@@ -9872,8 +9684,12 @@ function setupFilterWindow() {
         setupOptionsWindow(); // Call to create the options window shell and event listeners
         setupFilterWindow();
         applyThemeSettings(); // Apply any saved theme settings
-        await fetchTimezones();
-        setupTimezoneSearch();
+        try {
+            await fetchTimezones();
+            setupTimezoneSearch();
+        } catch (e) {
+            consoleError("Could not fetch or set up timezones, clock search will be disabled.", e);
+        }
 
         consoleLog('Attempting to call setupLoadingScreen...');
         setupLoadingScreen(); // Create loading screen elements early
@@ -9897,7 +9713,7 @@ function setupFilterWindow() {
                 consoleLog("Stats updated.");
 
                 // Restore viewer state
-                if (localStorage.getItem(VIEWER_OPEN_KEY) === 'true' && otkViewer) {
+                if (getSetting(VIEWER_OPEN_KEY) === 'true' && otkViewer) {
                     otkViewer.classList.add('otk-message-layout-default');
                     otkViewer.classList.remove('otk-message-layout-newdesign');
                     consoleLog('Viewer state restored to open. Layout class applied. Rendering all messages.');
@@ -9913,7 +9729,7 @@ function setupFilterWindow() {
 
                 // Background refresh is no longer started automatically on page load.
                 // It is started by clicking "Refresh Data" or by unchecking "Disable Background Updates".
-                if (localStorage.getItem(BACKGROUND_UPDATES_DISABLED_KEY) !== 'true') {
+                if (getSetting(BACKGROUND_UPDATES_DISABLED_KEY) !== 'true') {
                     consoleLog("Background updates are enabled, initiating first check.");
                     startBackgroundRefresh();
                 } else {
@@ -10104,7 +9920,7 @@ function setupFilterWindow() {
         ];
 
         keysToExport.forEach(key => {
-            let value = localStorage.getItem(key);
+            let value = getSetting(key);
             if (value !== null) allSettings[key] = value;
         });
 
@@ -10130,7 +9946,7 @@ function setupFilterWindow() {
         if (!filename) return;
 
         const allSettings = {};
-        const currentThemeSettings = JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY) || '{}');
+        const currentThemeSettings = getSetting(THEME_SETTINGS_KEY) || {};
         const snapshotThemeSettings = { ...currentThemeSettings, ...pendingThemeChanges };
         const keysToExport = [
             OTK_TRACKED_KEYWORDS_KEY, OTK_BLOCKED_KEYWORDS_KEY, 'otkMinUpdateSeconds',
@@ -10149,10 +9965,10 @@ function setupFilterWindow() {
         ];
 
         keysToExport.forEach(key => {
-            let value = localStorage.getItem(key);
+            let value = getSetting(key);
             if (value !== null) {
                 try {
-                    let parsedValue = (key === THEME_SETTINGS_KEY) ? snapshotThemeSettings : JSON.parse(value);
+                    let parsedValue = (key === THEME_SETTINGS_KEY) ? snapshotThemeSettings : value;
                     if (key === THEME_SETTINGS_KEY && typeof parsedValue === 'object') {
                         Object.keys(parsedValue).forEach(themeKey => {
                             if (typeof parsedValue[themeKey] === 'string' && parsedValue[themeKey].startsWith('data:image')) {
@@ -10240,7 +10056,7 @@ function setupFilterWindow() {
         document.addEventListener('visibilitychange', () => {
             const viewerIsOpen = otkViewer && otkViewer.style.display === 'block';
             if (!document.hidden && viewerIsOpen && cachedNewMessages.length > 0) {
-                const autoLoad = localStorage.getItem('otkAutoLoadUpdates') === 'true';
+                const autoLoad = getSetting('otkAutoLoadUpdates') === 'true';
                 if (autoLoad) {
                     consoleLog(`[Visibility] Tab is visible, appending ${cachedNewMessages.length} cached messages.`);
                     appendNewMessagesToViewer(cachedNewMessages);
@@ -10249,7 +10065,7 @@ function setupFilterWindow() {
             }
         });
 
-        if (localStorage.getItem('otkClockEnabled') === 'true') {
+        if (getSetting('otkClockEnabled') === 'true') {
             const clockElement = document.getElementById('otk-clock');
             if (clockElement) {
                 clockElement.style.display = 'flex';
@@ -10277,7 +10093,7 @@ function setupFilterWindow() {
                 return;
             }
 
-            const suspendAfterInactiveMinutesValue = localStorage.getItem('otkSuspendAfterInactiveMinutes') || '1';
+            const suspendAfterInactiveMinutesValue = getSetting('otkSuspendAfterInactiveMinutes') || '1';
             if (suspendAfterInactiveMinutesValue === 'Disabled') {
                 return;
             }
@@ -10360,7 +10176,7 @@ function setupTimezoneSearch() {
         resultDiv.addEventListener('click', () => {
             const selectedTimezone = resultDiv.dataset.timezone;
             const selectedCity = resultDiv.dataset.city;
-            let clocks = JSON.parse(localStorage.getItem('otkClocks') || '[]');
+            let clocks = getSetting('otkClocks') || [];
             const clockIndex = clocks.findIndex(c => c.id === activeClockSearchId);
 
             if (clockIndex !== -1) {
@@ -10393,5 +10209,16 @@ function setupTimezoneSearch() {
 
         results.forEach(addZoneItem);
     });
+}
+
+    } catch (e) {
+        console.error("A critical error occurred in the main function of the userscript:", e);
+    }
+};
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', main);
+} else {
+    main();
 }
 })();
