@@ -9,7 +9,7 @@
 // @grant        GM.setValue
 // ==/UserScript==
 
-(async function() {
+(function() {
     'use strict';
 
     // --- IIFE Scope Helper for Intersection Observer ---
@@ -805,7 +805,6 @@ function createTweetEmbedElement(tweetId) {
 
     async function initDB() {
         return new Promise((resolve, reject) => {
-            console.log('initDB() function started.');
             consoleLog('Initializing IndexedDB...');
             const request = indexedDB.open('otkMediaDB', 3); // DB name and version - Incremented to 3
 
@@ -3098,13 +3097,8 @@ function _populateAttachmentDivWithMedia(
                 if (message.attachment.localStoreId && otkMediaDB) {
                     const filehash = message.attachment.filehash_db_key;
                     if (videoBlobUrlCache.has(filehash)) {
-                        const cachedBlob = videoBlobUrlCache.get(filehash);
-                        if (cachedBlob instanceof Blob) {
-                            const blobUrl = URL.createObjectURL(cachedBlob);
-                            video.src = blobUrl;
-                            video.dataset.blobUrl = blobUrl; // Store for later revocation
-                            return;
-                        }
+                        video.src = videoBlobUrlCache.get(filehash);
+                        return;
                     }
 
                     const transaction = otkMediaDB.transaction(['mediaStore'], 'readonly');
@@ -3113,16 +3107,17 @@ function _populateAttachmentDivWithMedia(
                     request.onsuccess = (event) => {
                         const storedItem = event.target.result;
                         if (storedItem && storedItem.blob) {
-                            videoBlobUrlCache.set(filehash, storedItem.blob);
-                            const blobUrl = URL.createObjectURL(storedItem.blob);
-                            video.src = blobUrl;
-                            video.dataset.blobUrl = blobUrl;
+                            const dataURL = URL.createObjectURL(storedItem.blob);
+                            createdBlobUrls.add(dataURL);
+                            videoBlobUrlCache.set(filehash, dataURL);
+                            video.src = dataURL;
                         }
                     };
                 }
             };
 
             video.onerror = () => loadFromCache();
+
             if (mediaLoadMode === 'cache_only') {
                 if (message.attachment.localStoreId) loadFromCache();
             } else {
@@ -3132,22 +3127,6 @@ function _populateAttachmentDivWithMedia(
             if (message.attachment.filehash_db_key && isTopLevelMessage) {
                 viewerTopLevelAttachedVideoHashes.add(message.attachment.filehash_db_key);
             }
-
-            // Cleanup blob URL when the element is removed from the DOM
-            const observer = new MutationObserver((mutationsList, observer) => {
-                for(const mutation of mutationsList) {
-                    if (mutation.type === 'childList') {
-                        mutation.removedNodes.forEach(removedNode => {
-                            if (removedNode === video && video.dataset.blobUrl) {
-                                URL.revokeObjectURL(video.dataset.blobUrl);
-                                consoleLog(`Revoked blob URL for video: ${video.dataset.blobUrl}`);
-                                observer.disconnect();
-                            }
-                        });
-                    }
-                }
-            });
-            observer.observe(document.body, { childList: true, subtree: true });
         }
 
         mediaWrapper.appendChild(mediaElement);
@@ -5119,7 +5098,7 @@ async function backgroundRefreshThreadsAndMessages(options = {}) { // Added opti
                 URL.revokeObjectURL(url);
             }
             createdBlobUrls.clear();
-
+            videoBlobUrlCache.clear();
             consoleLog('Viewer hidden state saved to localStorage.');
             // Reset viewer-specific counts and update stats to reflect totals
             viewerActiveImageCount = null;
@@ -9426,33 +9405,43 @@ function setupFilterWindow() {
     // --- Initial Actions / Main Execution ---
     function applyDefaultSettings() {
         const defaults = {
-            "otkTrackedKeywords": "otk, twitch, OTK & Company",
-            "otkSuspendAfterInactiveMinutes": 60,
-            "otkMediaLoadMode": "cache_only",
-            "otkBackgroundUpdatesDisabled": true,
+            "otkTrackedKeywords": "otk",
+            "otkSuspendAfterInactiveMinutes": 30,
+            "otkMediaLoadMode": "source_first",
+            "otkBackgroundUpdatesDisabled": false,
             "otkClockEnabled": true,
             "otkPipModeEnabled": true,
             "otkDebugModeEnabled": false,
             "otkThemeSettings": {
-                "guiBackgroundImageUrl": "https://image2url.com/images/1761873386643-e6861f83-261d-4d19-96ee-53473553b762.jpeg",
+                "guiBackgroundImageUrl": "https://image2url.com/images/1761529475654-4c7bfbea-a390-4b5e-aef2-07667b77c17d.jpeg",
                 "countdownLabelTextColor": "#ffffff",
                 "pipBackgroundColor": "#1a1a1a",
                 "viewerBackgroundImageUrl": "",
-                "guiBgRepeat": "no-repeat",
+                "guiBgRepeat": "repeat",
                 "guiBgSize": "cover",
-                "viewerBgRepeat": "no-repeat",
-                "viewerBgSize": "cover",
+                "viewerBgRepeat": "repeat-x",
+                "viewerBgSize": "contain",
+                "clockCogIconColor": "#ff8040",
+                "clockCogColor": "#FFD700",
                 "cogIconColor": "#FFD700",
                 "guiThreadListTimeColor": "#ffffff",
+                "msgDepth0TextColor": null,
+                "msgDepth0HeaderTextColor": null,
+                "viewerHeaderBorderColor": null,
                 "otkThreadTimePosition": "Before Title",
                 "otkThreadTimeDividerEnabled": true,
                 "otkThreadTimeDividerSymbol": "|",
+                "separatorColor": "#ff0505",
                 "otkThreadTimeDividerColor": "#ff8040",
+                "otkMaxUpdateSeconds": "4",
                 "otkThreadTimeBracketStyle": "none",
                 "otkNewMessagesSeparatorAlignment": "Left",
                 "blockedContentFontColor": "#a60c0c",
-                "guiThreadBoxOutlineColor": "919191",
-                "viewerThreadBoxOutlineColor": "919191",
+                "msgDepth1BgColor": null,
+                "msgDepth2plusBgColor": null,
+                "guiThreadBoxOutlineColor": "#919191",
+                "viewerMessageOutlineColor": "#ff8040",
+                "viewerThreadBoxOutlineColor": "#919191",
                 "plusIconBgColor": "#ffffff",
                 "otkThreadTitleAnimationSpeed": "1.5",
                 "qrBgColor": "#ffd1a4",
@@ -9466,48 +9455,26 @@ function setupFilterWindow() {
                 "guiButtonActiveBgColor": "#ff8040",
                 "ownMsgBgColorOdd": "#fce573",
                 "ownMsgBgColorEven": "#fce573",
-                "otkThreadTitleAnimationDirection": "down",
-                "otkMessageLimitEnabled": true,
-                "otkMessageLimitValue": "500",
-                "otkShowNewMessagesElements": "Show",
-                "titleTextColor": "#ff8040",
-                "clockTextColor": "#e6e6e6"
+                "otkThreadTitleAnimationDirection": "Down"
             },
             "otkThreadTitleColors": [
-             "#e6194B",
-             "#3cb44b",
-             "#ffe119",
-             "#4363d8",
-             "#f58231",
-             "#911eb4",
-             "#46f0f0",
-             "#f032e6",
-             "#bcf60c",
-             "#008080",
-             "#e6beff",
-             "#912499",
-             "#800000",
-             "#aaffc3",
-             "#cbcb25",
-             "#000075",
-             "#ffffff"
+                "#e6194B", "#3cb44b", "#ffe119", "#4363d8", "#f58231", "#911eb4", "#46f0f0", "#f032e6", "#bcf60c", "#008080", "#e6beff", "#912499", "#800000", "#aaffc3", "#cbcb25", "#000075", "#ffffff"
             ],
-            "otkClockPosition": { "top": "71px", "left": "1284px" },
-            "otkCountdownPosition": { "top": "-5px", "left": "1522px" },
+            "otkClockPosition": {
+                "top": "71px",
+                "left": "1284px"
+            },
+            "otkCountdownPosition": {
+                "top": "-5px",
+                "left": "1522px"
+            },
             "otkClocks": [
-                { "id": 1, "timezone": "America/Chicago", "displayPlace": "Austin" },
-                { "id": 2, "timezone": "America/Los_Angeles", "displayPlace": "Los Angeles" }
-            ],
-            "otkImageBlurAmount": "60",
-            "otkFilterRulesV2": "[]",
-            "otkBlurredImages": "[]",
-            "otkUnreadMessageIds": "[]",
-            "otkCollapsibleStates": "{}"
+                { "id": 1756699206552, "timezone": "America/Chicago", "displayPlace": "Austin" },
+                { "id": 1756699263949, "timezone": "America/Los_Angeles", "displayPlace": "Los Angeles" }
+            ]
         };
 
-        // Apply top-level settings
         Object.keys(defaults).forEach(key => {
-            if (key === "otkThemeSettings") return; // Handle theme settings separately
             if (localStorage.getItem(key) === null) {
                 let valueToSet = defaults[key];
                 if (typeof valueToSet === 'object') {
@@ -9516,33 +9483,10 @@ function setupFilterWindow() {
                 localStorage.setItem(key, valueToSet);
             }
         });
-
-        // Apply theme settings
-        let currentThemeSettings = {};
-        try {
-            currentThemeSettings = JSON.parse(localStorage.getItem("otkThemeSettings")) || {};
-        } catch (e) {
-            consoleError("Error parsing existing theme settings:", e);
-        }
-
-        const defaultThemeSettings = defaults.otkThemeSettings;
-        let themeSettingsModified = false;
-        Object.keys(defaultThemeSettings).forEach(key => {
-            if (currentThemeSettings[key] === undefined) {
-                currentThemeSettings[key] = defaultThemeSettings[key];
-                themeSettingsModified = true;
-            }
-        });
-
-        if (themeSettingsModified) {
-            localStorage.setItem("otkThemeSettings", JSON.stringify(currentThemeSettings));
-        }
-
         console.log("Default settings applied if not already present.");
     }
 
     async function main() {
-        console.log("main() function started.");
         applyDefaultSettings();
         // Ensure default animation speed is set on first run
         let settings = JSON.parse(localStorage.getItem(THEME_SETTINGS_KEY)) || {};
@@ -10222,20 +10166,15 @@ function setupFilterWindow() {
 }
 
         // Kick off the script using the main async function
-        try {
-            main().finally(() => {
-                // Final verification log after main execution sequence
-                const centerInfo = document.getElementById('otk-center-info-container');
-                if (centerInfo) {
-                    consoleLog('[Final Check] Computed flex-grow for centerInfoContainer:', window.getComputedStyle(centerInfo).flexGrow);
-                } else {
-                    consoleWarn('[Final Check] centerInfoContainer not found for flex-grow check.');
-                }
-            });
-            console.log("Userscript execution started.");
-        } catch (e) {
-            console.error("Error starting userscript main function:", e);
-        }
+        main().finally(() => {
+            // Final verification log after main execution sequence
+            const centerInfo = document.getElementById('otk-center-info-container');
+            if (centerInfo) {
+                consoleLog('[Final Check] Computed flex-grow for centerInfoContainer:', window.getComputedStyle(centerInfo).flexGrow);
+            } else {
+                consoleWarn('[Final Check] centerInfoContainer not found for flex-grow check.');
+            }
+        });
 
         document.addEventListener('visibilitychange', () => {
             const viewerIsOpen = otkViewer && otkViewer.style.display === 'block';
@@ -10394,4 +10333,5 @@ function setupTimezoneSearch() {
         results.forEach(addZoneItem);
     });
 }
+
 })();
