@@ -2954,8 +2954,15 @@ function _populateAttachmentDivWithMedia(
     effectiveDepthForStyling,
     filenameContainer
 ) {
-    const loadImageFromCache = (imgElement, isThumb) => {
+    const loadImageFromCache = (imgElement, isThumb, fallbackSrc = null) => {
         const storeId = isThumb ? message.attachment.localThumbStoreId : message.attachment.localStoreId;
+        const handleError = () => {
+            if (fallbackSrc) {
+                consoleLog(`[MediaLoad] Image cache miss/error for ${storeId}. Falling back to network: ${fallbackSrc}`);
+                imgElement.src = fallbackSrc;
+            }
+        };
+
         if (storeId && otkMediaDB) {
             const transaction = otkMediaDB.transaction(['mediaStore'], 'readonly');
             const store = transaction.objectStore('mediaStore');
@@ -2966,8 +2973,13 @@ function _populateAttachmentDivWithMedia(
                     const dataURL = URL.createObjectURL(storedItem.blob);
                     createdBlobUrls.add(dataURL);
                     imgElement.src = dataURL;
+                } else {
+                    handleError();
                 }
             };
+            request.onerror = handleError;
+        } else {
+            handleError();
         }
     };
 
@@ -2976,7 +2988,7 @@ function _populateAttachmentDivWithMedia(
     }
 
     const isArchived = !activeThreads.includes(message.originalThreadId);
-    const mediaLoadModeSetting = localStorage.getItem('otkMediaLoadMode') || 'source_first';
+    const mediaLoadModeSetting = localStorage.getItem('otkMediaLoadMode') || 'cache_only';
     const mediaLoadMode = isArchived ? 'cache_only' : mediaLoadModeSetting;
     if (isArchived && mediaLoadModeSetting !== 'cache_only') {
         consoleLog(`[MediaLoad] Message ${message.id} is in archived thread ${message.originalThreadId}. Forcing cache-only mode.`);
@@ -3021,7 +3033,9 @@ function _populateAttachmentDivWithMedia(
             setImageProperties = (mode) => {
                 img.dataset.mode = mode;
                 let isThumb = (mode === 'thumb');
-                const hasCache = isThumb ? message.attachment.localThumbStoreId : message.attachment.localStoreId;
+                const sourceUrl = isThumb
+                    ? `https://i.4cdn.org/${actualBoardForLink}/${message.attachment.tim}s.jpg`
+                    : `https://i.4cdn.org/${actualBoardForLink}/${message.attachment.tim}${message.attachment.ext}`;
 
                 if (isThumb) {
                     img.style.width = message.attachment.tn_w + 'px';
@@ -3041,18 +3055,29 @@ function _populateAttachmentDivWithMedia(
                 }
 
                 if (mediaLoadMode === 'cache_only') {
-                    if (hasCache) loadImageFromCache(img, isThumb);
-                    else img.src = '';
+                    loadImageFromCache(img, isThumb, sourceUrl);
                 } else {
-                    img.src = isThumb
-                        ? `https://i.4cdn.org/${actualBoardForLink}/${message.attachment.tim}s.jpg`
-                        : `https://i.4cdn.org/${actualBoardForLink}/${message.attachment.tim}${message.attachment.ext}`;
+                    img.src = sourceUrl;
                 }
             };
 
             mediaLoadPromises.push(new Promise(resolve => {
                 img.onload = () => { img.style.display = 'block'; resolve(); };
-                img.onerror = () => { loadImageFromCache(img, img.dataset.mode === 'thumb'); resolve(); };
+                img.onerror = () => {
+                    const sourceUrl = (img.dataset.mode === 'thumb')
+                        ? `https://i.4cdn.org/${actualBoardForLink}/${message.attachment.tim}s.jpg`
+                        : `https://i.4cdn.org/${actualBoardForLink}/${message.attachment.tim}${message.attachment.ext}`;
+
+                    // If src is a blob, it was a cache attempt that failed. Fallback to network.
+                    if (img.src.startsWith('blob:')) {
+                        img.src = sourceUrl;
+                        img.onerror = () => resolve(); // Give up if network fails
+                    } else if (img.src !== sourceUrl) {
+                        // This handles source_first mode where network fails, now we try cache.
+                        loadImageFromCache(img, img.dataset.mode === 'thumb');
+                    }
+                    resolve();
+                };
             }));
 
             setImageProperties(defaultToThumbnail ? 'thumb' : 'full');
@@ -3093,7 +3118,9 @@ function _populateAttachmentDivWithMedia(
             video.style.display = 'block';
             mediaElement = video;
 
-            const loadFromCache = () => {
+            const sourceUrl = `https://i.4cdn.org/${actualBoardForLink}/${message.attachment.tim}${extLower.startsWith('.') ? extLower : '.' + extLower}`;
+
+            const loadFromCache = (fallbackToSource = false) => {
                 if (message.attachment.localStoreId && otkMediaDB) {
                     const filehash = message.attachment.filehash_db_key;
                     if (videoBlobUrlCache.has(filehash)) {
@@ -3104,6 +3131,14 @@ function _populateAttachmentDivWithMedia(
                     const transaction = otkMediaDB.transaction(['mediaStore'], 'readonly');
                     const store = transaction.objectStore('mediaStore');
                     const request = store.get(message.attachment.localStoreId);
+
+                    const handleError = () => {
+                        if (fallbackToSource) {
+                            consoleLog(`[MediaLoad] Video cache miss/error for ${filehash}. Falling back to network.`);
+                            video.src = sourceUrl;
+                        }
+                    };
+
                     request.onsuccess = (event) => {
                         const storedItem = event.target.result;
                         if (storedItem && storedItem.blob) {
@@ -3111,18 +3146,33 @@ function _populateAttachmentDivWithMedia(
                             createdBlobUrls.add(dataURL);
                             videoBlobUrlCache.set(filehash, dataURL);
                             video.src = dataURL;
+                        } else {
+                            handleError();
                         }
                     };
+                    request.onerror = handleError;
+                } else {
+                    if (fallbackToSource) {
+                        consoleLog(`[MediaLoad] No storeId for video. Falling back to network.`);
+                        video.src = sourceUrl;
+                    }
                 }
             };
 
-            video.onerror = () => loadFromCache();
+            video.onerror = () => {
+                const filehash = message.attachment.filehash_db_key;
+                if (video.src.startsWith('blob:') && filehash && videoBlobUrlCache.has(filehash)) {
+                    consoleWarn(`[MediaLoad] Cached video blob failed to load for ${filehash}. Clearing from cache and retrying.`);
+                    videoBlobUrlCache.delete(filehash);
+                    // Prevent infinite loops: remove the onerror handler before retrying.
+                    video.onerror = null;
+                    loadFromCache(true); // Retry once from DB/network
+                }
+            };
 
-            if (mediaLoadMode === 'cache_only') {
-                if (message.attachment.localStoreId) loadFromCache();
-            } else {
-                video.src = `https://i.4cdn.org/${actualBoardForLink}/${message.attachment.tim}${extLower.startsWith('.') ? extLower : '.' + extLower}`;
-            }
+            // Always try to load from cache first, and fallback to source.
+            // This prevents "Too Many Requests" errors by not re-fetching media that is already cached.
+            loadFromCache(true);
 
             if (message.attachment.filehash_db_key && isTopLevelMessage) {
                 viewerTopLevelAttachedVideoHashes.add(message.attachment.filehash_db_key);
@@ -3333,6 +3383,12 @@ function _populateMessageBody(message, mediaLoadPromises, uniqueImageViewerHashe
                         if (timeMatch && timeMatch[1]) timestampStr = timeMatch[1];
                         if (videoId) {
                             textElement.appendChild(createYouTubeEmbedElement(videoId, timestampStr));
+                            const urlLink = document.createElement('a');
+                            urlLink.href = trimmedLine;
+                            urlLink.textContent = trimmedLine;
+                            urlLink.target = '_blank';
+                            urlLink.style.cssText = "display: block; color: #60a5fa; font-size: 11px;";
+                            textElement.appendChild(urlLink);
                             soleUrlEmbedMade = true;
                             processedAsEmbed = true;
                             break;
@@ -3352,6 +3408,12 @@ function _populateMessageBody(message, mediaLoadPromises, uniqueImageViewerHashe
                         }
                         if (id) {
                             textElement.appendChild(createTwitchEmbedElement(patternObj.type, id, timestampStr));
+                            const urlLink = document.createElement('a');
+                            urlLink.href = trimmedLine;
+                            urlLink.textContent = trimmedLine;
+                            urlLink.target = '_blank';
+                            urlLink.style.cssText = "display: block; color: #60a5fa; font-size: 11px;";
+                            textElement.appendChild(urlLink);
                             soleUrlEmbedMade = true;
                             processedAsEmbed = true;
                             break;
@@ -3366,6 +3428,12 @@ function _populateMessageBody(message, mediaLoadPromises, uniqueImageViewerHashe
                         const videoId = match[patternObj.idGroup];
                         if (videoId) {
                             textElement.appendChild(createTikTokEmbedElement(videoId));
+                            const urlLink = document.createElement('a');
+                            urlLink.href = trimmedLine;
+                            urlLink.textContent = trimmedLine;
+                            urlLink.target = '_blank';
+                            urlLink.style.cssText = "display: block; color: #60a5fa; font-size: 11px;";
+                            textElement.appendChild(urlLink);
                             soleUrlEmbedMade = true;
                             processedAsEmbed = true;
                             break;
@@ -3380,6 +3448,12 @@ function _populateMessageBody(message, mediaLoadPromises, uniqueImageViewerHashe
                         const videoId = match[patternObj.idGroup];
                         if (videoId) {
                             textElement.appendChild(createStreamableEmbedElement(videoId));
+                            const urlLink = document.createElement('a');
+                            urlLink.href = trimmedLine;
+                            urlLink.textContent = trimmedLine;
+                            urlLink.target = '_blank';
+                            urlLink.style.cssText = "display: block; color: #60a5fa; font-size: 11px;";
+                            textElement.appendChild(urlLink);
                             soleUrlEmbedMade = true;
                             processedAsEmbed = true;
                             break;
@@ -3713,9 +3787,6 @@ function createMessageElementDOM(message, mediaLoadPromises, uniqueImageViewerHa
     }
 
     const shouldDisableUnderline = !isTopLevelMessage;
-
-        const showFilenameKey = isEvenDepth ? 'showOddMessageFilename' : 'showEvenMessageFilename';
-        const shouldDisplayFilenames = allThemeSettings[showFilenameKey] === true; // Defaults to false if not set
 
         // --- Define all media patterns once at the top of the function ---
         const youtubePatterns = [
@@ -8742,9 +8813,7 @@ function createSectionHeading(text) {
 
             const newBooleanSettings = [
                 { key: 'otkMsgDepthOddDisableHeaderUnderline', defaultValue: false, idSuffix: 'msg-depth-odd-disable-header-underline' },
-                { key: 'otkMsgDepthEvenDisableHeaderUnderline', defaultValue: true, idSuffix: 'msg-depth-even-disable-header-underline' },
-                { key: 'showOddMessageFilename', defaultValue: false, idSuffix: 'show-odd-filename'},
-                { key: 'showEvenMessageFilename', defaultValue: false, idSuffix: 'show-even-filename'}
+                { key: 'otkMsgDepthEvenDisableHeaderUnderline', defaultValue: true, idSuffix: 'msg-depth-even-disable-header-underline' }
             ];
             newBooleanSettings.forEach(opt => {
                 const checkbox = document.getElementById(`otk-${opt.idSuffix}-checkbox`);
